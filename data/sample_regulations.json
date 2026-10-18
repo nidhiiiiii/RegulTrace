@@ -1,0 +1,10 @@
+[
+  {"id": "SAMPLE-1", "title": "DPDP (Amendment) Rules, 2026 - erasure timeline",
+   "text": "In partial modification of the earlier rules, a data fiduciary shall erase personal data within 30 days of receiving a verified erasure request or withdrawal of consent, including copies held by processors."},
+  {"id": "SAMPLE-2", "title": "RBI - Grievance redressal timeline for regulated entities",
+   "text": "RBI directs regulated entities to resolve customer complaints within 21 days and display the grievance officer details in their app and website."},
+  {"id": "SAMPLE-3", "title": "RBI Digital Lending (Amendment) Directions - cooling-off period",
+   "text": "Regulated entities shall give borrowers a cooling-off period within 5 days of disbursal to exit a digital loan without penalty, paying only the principal and proportionate APR."},
+  {"id": "SAMPLE-4", "title": "CERT-In - Cyber incident reporting timeline",
+   "text": "Service providers and intermediaries shall report cyber incidents to CERT-In within 4 hours of noticing them."}
+]

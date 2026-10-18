@@ -1,5 +1,6 @@
 import csv
 import glob
+import json
 import os
 import re
 import sys
@@ -72,6 +73,12 @@ def load(host="localhost", port=6379):
     g.query("UNWIND $rows AS r UNWIND r.controls AS cid MATCH (s:Section {id: r.id}), (c:Control {id: cid}) "
             "CREATE (s)-[:IMPLEMENTED_BY]->(c)", {"rows": sections})
     g.query("CALL db.idx.fulltext.createNodeIndex({label: 'Section', language: 'English'}, 'title', 'text')")
+
+    with open(os.path.join(DATA, "sample_regulations.json")) as f:
+        samples = json.load(f)
+    g.query("UNWIND $rows AS r CREATE (:Circular {id: r.id, source: 'Sample regulation', title: r.title, url: '', "
+            "date: toString(date()), text: r.text, status: 'triaged', relevant: true, triaged_by: 'sample', "
+            "reason: 'Sample regulation for the demo. Click it, then Analyze impact.'})", {"rows": samples})
 
     n = g.query("MATCH (n) RETURN count(n)").result_set[0][0]
     m = g.query("MATCH ()-[r]->() RETURN count(r)").result_set[0][0]
