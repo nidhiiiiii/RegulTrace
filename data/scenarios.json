@@ -1,0 +1,61 @@
+{
+  "company": "PayNova (fictional Indian fintech: UPI payments + digital lending)",
+  "impact_model": {
+    "note": "Illustrative demo logic. Direct enforcement chain only - no guessing across unrelated controls, so it does not over-alert.",
+    "policies": "clause -[:MAPS_TO]-> policy   (if none and the clause SUPERSEDES an older clause, inherit the older clause's mapping = memory/precedent)",
+    "controls": "policy -[:ENFORCED_BY]-> control",
+    "systems": "control -[:RUNS_ON]-> system, plus downstream system -[:DEPENDS_ON]-> system",
+    "owners": "policy|control -[:OWNED_BY]-> owner",
+    "baseline": "keyword search = non-clause nodes whose keywords overlap the clause's keywords (what a doc/vector search over the circular text finds)"
+  },
+  "scenarios": [
+    {
+      "name": "DPDP erasure clause lands (headline demo)",
+      "type": "impact",
+      "story": "Legal forwards a DPDP update on the right to erasure: 'who do we need to talk to?'",
+      "clause": "CL_DPDP_ERASURE",
+      "expected": {
+        "keyword_hits": ["POL_RETENTION", "CTRL_DELJOB"],
+        "impact": ["POL_RETENTION", "CTRL_DELJOB", "CTRL_ENCRYPT", "SYS_USERDB", "SYS_DWH", "OWN_LEGAL", "OWN_DATAENG", "OWN_SEC"],
+        "missed_by_keyword": ["CTRL_ENCRYPT", "SYS_USERDB", "SYS_DWH", "OWN_LEGAL", "OWN_DATAENG", "OWN_SEC"],
+        "explanation": "Keyword search finds 2 documents that say 'erasure/deletion'. The graph walks the enforcement chain to the encryption control, both data stores, and the 3 owners who actually have to act - none of which mention 'erasure'."
+      }
+    },
+    {
+      "name": "Amendment reuses precedent (memory)",
+      "type": "memory",
+      "story": "Two months later DPDP amends the erasure timeline to 30 days. Nobody has mapped the new clause yet.",
+      "clause": "CL_DPDP_ERASURE_V2",
+      "supersedes": "CL_DPDP_ERASURE",
+      "expected": {
+        "direct_mappings": 0,
+        "impact_equals": "CL_DPDP_ERASURE",
+        "explanation": "The new clause has no mapping of its own. It SUPERSEDES the old clause, so the agent inherits that mapping and returns the full impact instantly - every mapping the team confirms becomes precedent for the next circular."
+      }
+    },
+    {
+      "name": "RBI grievance rule (scoped, no over-alert)",
+      "type": "impact",
+      "story": "RBI tweaks the grievance-redressal rule. Should NOT light up the whole company.",
+      "clause": "CL_RBI_GRIEVANCE",
+      "expected": {
+        "keyword_hits": ["POL_GRIEVANCE", "CTRL_GRIEVANCE_WF"],
+        "impact": ["POL_GRIEVANCE", "CTRL_GRIEVANCE_WF", "SYS_APP", "OWN_LEGAL", "OWN_SUPPORT"],
+        "must_not_include": ["OWN_SEC", "OWN_DATAENG", "OWN_LENDPROD", "SYS_USERDB", "SYS_DWH", "SYS_LENDING"],
+        "explanation": "Only the support workflow and its owner are affected. Security, data and lending teams are not paged."
+      }
+    },
+    {
+      "name": "RBI APR disclosure (crosses into the data layer)",
+      "type": "impact",
+      "story": "RBI changes how all-in APR must be disclosed.",
+      "clause": "CL_RBI_APR",
+      "expected": {
+        "keyword_hits": ["POL_DISCLOSURE", "CTRL_APR_DISC"],
+        "impact": ["POL_DISCLOSURE", "CTRL_APR_DISC", "CTRL_KFS_GEN", "SYS_APP", "SYS_LENDING", "SYS_USERDB", "OWN_LEGAL", "OWN_LENDPROD"],
+        "missed_by_keyword": ["CTRL_KFS_GEN", "SYS_APP", "SYS_LENDING", "SYS_USERDB", "OWN_LEGAL", "OWN_LENDPROD"],
+        "explanation": "The KFS generator never says 'APR' but enforces the same policy, and the lending engine depends on the user DB - a 2-hop system dependency keyword search can't see."
+      }
+    }
+  ]
+}

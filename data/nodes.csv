@@ -1,0 +1,36 @@
+id,type,name,keywords
+REG_DPDP,Regulation,DPDP Act 2023,
+REG_RBI_DL,Regulation,RBI Digital Lending Directions,
+CL_DPDP_ERASURE,Clause,Right to erasure of personal data,erasure;deletion;retention
+CL_DPDP_ERASURE_V2,Clause,Amended erasure - delete within 30 days,erasure;deletion;timeline
+CL_DPDP_CONSENT,Clause,Consent must be free and revocable,consent;notice
+CL_DPDP_BREACH,Clause,Personal data breach notification,breach;notification
+CL_RBI_APR,Clause,All-in APR disclosure to borrower,apr;disclosure;cost
+CL_RBI_KFS,Clause,Key Fact Statement to borrower,kfs;disclosure
+CL_RBI_GRIEVANCE,Clause,Grievance redressal nodal officer,grievance;complaint
+POL_RETENTION,Policy,Data Retention and Deletion Policy,retention;deletion;erasure
+POL_CONSENT,Policy,Consent Management Policy,consent
+POL_KYC,Policy,KYC Policy,kyc
+POL_DISCLOSURE,Policy,Lending Disclosure Policy,apr;disclosure;kfs
+POL_GRIEVANCE,Policy,Grievance Redressal Policy,grievance
+POL_INCIDENT,Policy,Incident Response Policy,breach;incident
+CTRL_DELJOB,Control,Automated data-deletion job,deletion
+CTRL_ENCRYPT,Control,Encryption at rest,encryption
+CTRL_AUDITLOG,Control,Audit logging,audit
+CTRL_CONSENT_CAP,Control,Consent capture at onboarding,consent
+CTRL_BREACH_NOTIF,Control,Breach notification runbook,breach
+CTRL_APR_DISC,Control,APR disclosure screen,apr;disclosure
+CTRL_KFS_GEN,Control,Key Fact Statement generation,kfs
+CTRL_GRIEVANCE_WF,Control,Grievance workflow,grievance
+CTRL_KYC_VERIFY,Control,KYC verification,kyc
+SYS_USERDB,System,User database,
+SYS_DWH,System,Data warehouse,
+SYS_LENDING,System,Lending engine,
+SYS_CONSENT,System,Consent service,
+SYS_KYC,System,KYC service,
+SYS_APP,System,Mobile app,
+OWN_DATAENG,Owner,Data Engineering - Ravi,
+OWN_SEC,Owner,Security - Meena,
+OWN_LEGAL,Owner,Legal and Compliance - Aarti,
+OWN_LENDPROD,Owner,Lending Product - Karan,
+OWN_SUPPORT,Owner,Customer Support - Neha,
