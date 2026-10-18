@@ -147,6 +147,21 @@ button.primary { background: var(--accent); }
 .statcard span { font-size: 13px; color: var(--muted); }
 @media (max-width: 900px) { .shell { grid-template-columns: 1fr; } .side { position: static; height: auto; } .statgrid { grid-template-columns: 1fr 1fr; } }
 .brand { height: 28px; width: auto; display: block; } .brand.dark { display: none; } :root[data-theme="dark"] .brand.light { display: none; } :root[data-theme="dark"] .brand.dark { display: block; }
+.notice { display: flex; gap: 12px; align-items: flex-start; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin: 10px 0; background: var(--soft); font-size: 13.5px; }
+.notice > svg { width: 18px; height: 18px; flex: none; margin-top: 1px; color: var(--accent); }
+.notice b { display: block; font-weight: 600; margin-bottom: 2px; }
+.notice p { margin: 0; color: var(--muted); }
+.notice .act { margin-left: auto; flex: none; }
+.notice.limit { border-color: color-mix(in srgb, var(--warn) 45%, transparent); background: var(--warn-soft); }
+.notice.limit > svg { color: var(--warn); }
+.notice.error { border-color: color-mix(in srgb, var(--bad) 45%, transparent); background: var(--bad-soft); }
+.notice.error > svg { color: var(--bad); }
+.aipill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 3px 9px; border-radius: 999px; background: var(--soft); color: var(--muted); }
+.aipill i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.aipill.ok i { background: var(--ok); }
+.aipill.limit { color: var(--warn); }
+.aipill.limit i { background: var(--warn); }
+.aipill.error i { background: var(--bad); }
 </style>
 </head>
 <body>
@@ -185,7 +200,7 @@ button.primary { background: var(--accent); }
         <div class="row" style="margin-top:8px"><button class="primary" id="paste-go">Analyze impact</button><button class="link" id="paste-sample">Use a sample</button></div>
       </div>
       <div class="filters"><button id="f-rel" class="on">Affects PayNova</button><button id="f-all">All</button></div>
-      <div class="feed" id="feed"></div>
+      <div id="feed-note"></div><div class="feed" id="feed"></div>
       <div class="error" id="feed-error"></div>
       <div class="row" style="justify-content:space-between;margin-top:10px"><span class="note" id="llm"></span><button class="link" id="reset">Reset demo</button></div>
     </div>
@@ -268,7 +283,13 @@ let state = { items: [], filter: "rel", selected: null, person: null, cy: null }
 async function api(path, body) {
   const res = await fetch(path, body === undefined ? {} : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.detail || res.statusText);
+  if (!res.ok) {
+    const d = data.detail;
+    const err = new Error(typeof d === "string" ? d : (d && d.message) || res.statusText);
+    if (d && typeof d === "object") Object.assign(err, d);
+    err.status = res.status;
+    throw err;
+  }
   return data;
 }
 
@@ -278,15 +299,58 @@ function toast(msg) {
   clearTimeout(toast.timer); toast.timer = setTimeout(() => (t.hidden = true), 2600);
 }
 
+const NOTICE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 7v6M12 17h.01"/></svg>';
+const sentence = (t) => t ? t[0].toUpperCase() + t.slice(1) : "";
+const waitText = (sec) => sec >= 3600 ? `${Math.floor(sec / 3600)} h ${Math.round((sec % 3600) / 60)} min` : sec >= 90 ? `${Math.round(sec / 60)} min` : `${sec}s`;
+
+function notice(kind, title, body, action = "") {
+  return `<div class="notice ${kind}" role="status">${NOTICE_ICON}<div><b>${esc(title)}</b><p>${esc(body)}</p></div>${action ? `<div class="act">${action}</div>` : ""}</div>`;
+}
+
+function countdown(el, seconds, label) {
+  clearInterval(el._timer);
+  let left = Math.max(0, Math.round(seconds));
+  const tick = () => {
+    if (left <= 0) { clearInterval(el._timer); el.disabled = false; el.textContent = label; return; }
+    el.disabled = true; el.textContent = `${label} in ${waitText(left)}`; left--;
+  };
+  tick();
+  el._timer = setInterval(tick, 1000);
+}
+
+function aiIssueNotice(r) {
+  if (r.mode === "gpt" || !r.ai_issue) return "";
+  const retry = '<button id="retry-ai">Retry with AI</button>';
+  if (r.ai_issue === "off") return notice("info", "AI is not connected", "This result comes from the rule-based fallback. Add a GEMINI_API_KEY to get AI-drafted edits and actions.");
+  if (r.ai_issue === "minute") return notice("limit", "AI paused for a moment", "Gemini's free per-minute limit was reached, so this result comes from the rule-based fallback. It catches changed deadlines but can miss wider changes.", retry);
+  if (r.ai_issue === "day") return notice("limit", "AI paused until the daily limit resets", `${sentence(r.note || "Gemini's free daily limit is used up")}. Until then, results come from the rule-based fallback.`, r.retry_after ? retry : "");
+  if (r.ai_issue === "credits") return notice("limit", "The AI account has no credits", "This result comes from the rule-based fallback until credits are added.");
+  return notice("error", "AI couldn't respond", `${sentence(r.note || "the AI provider didn't answer")}. This result comes from the rule-based fallback.`, retry);
+}
+
 async function loadStatus() {
   const s = await api("/api/status");
-  $("llm").textContent = s.llm ? `Analysis by ${s.model}` : s.key ? `GPT unavailable (${s.problem}): rule-based analysis` : "No OpenAI key: rule-based analysis";
+  const el = $("llm");
+  clearInterval(loadStatus.timer);
+  const pill = (cls, text) => `<span class="aipill ${cls}" title="${esc(s.problem || "")}"><i></i>${esc(text)}</span>`;
+  if (s.state === "ok") el.innerHTML = pill("ok", `AI: ${s.model}`);
+  else if (s.state === "off") el.innerHTML = pill("", "AI not connected · rule-based mode");
+  else if (s.retry_in) {
+    let left = s.retry_in;
+    const draw = () => (el.innerHTML = pill("limit", `AI paused · back in ${waitText(left)}`));
+    draw();
+    loadStatus.timer = setInterval(() => { left -= 1; if (left <= 0) { clearInterval(loadStatus.timer); loadStatus().catch(() => {}); } else draw(); }, 1000);
+  } else if (s.state === "limit") el.innerHTML = pill("limit", s.kind === "day" ? "AI daily limit reached · rule-based until tomorrow" : "AI limit reached · rule-based mode");
+  else el.innerHTML = pill("error", "AI unavailable · rule-based mode");
 }
 
 async function loadFeed() {
   const r = await api("/api/regulations");
   state.items = r.items;
   $("live").textContent = r.last_checked ? `Watching RBI · checked ${r.last_checked}` : "Watching RBI · not checked yet";
+  $("feed-note").innerHTML = r.triage_note
+    ? notice(r.triage_note.startsWith("no AI key") ? "info" : "limit", "Screened by keywords for now", `${sentence(r.triage_note)}. RegulTrace re-screens with AI on the next check.`)
+    : "";
   renderFeed();
   loadStats().catch(() => {});
 }
@@ -324,6 +388,7 @@ async function runAnalysis(id) {
     const view = await api(`/api/regulations/${encodeURIComponent(id)}/analyze`, {});
     await loadFeed();
     renderDetail(view);
+    loadStatus().catch(() => {});
   } catch (e) { toast(e.message); if (btn) { btn.disabled = false; btn.textContent = "Analyze impact"; } }
 }
 
@@ -341,7 +406,7 @@ function renderDetail(view) {
         <h3>${esc(r.title)}</h3>
         <div class="small muted" style="margin:4px 0 8px">${esc(r.source)} · ${esc(r.date)} · ${source}</div>
         <div>${esc(analyzed ? r.summary : r.reason || "")}</div>
-        ${analyzed ? `<div class="note" style="margin-top:6px">${r.mode === "gpt" ? "Analyzed by GPT against PayNova's policy documents." : "Rule-based analysis" + (r.note ? ` (${esc(r.note)})` : "") + "."}</div>`
+        ${analyzed ? (r.mode === "gpt" ? `<div class="note" style="margin-top:6px">Analyzed by AI${r.model ? ` (${esc(r.model)})` : ""} against PayNova's policy documents.</div>` : aiIssueNotice(r) || `<div class="note" style="margin-top:6px">Rule-based analysis${r.note ? ` (${esc(r.note)})` : ""}.</div>`)
           : `<button class="primary" id="analyze" style="margin-top:10px">Analyze impact</button>`}
         ${analyzed && view.retrieval ? retrievalHtml(view.retrieval) : ""}
       </div></div>
@@ -388,6 +453,10 @@ function renderDetail(view) {
   d.innerHTML = html;
   if ($("analyze")) $("analyze").onclick = () => runAnalysis(r.id);
   if ($("to-graph")) $("to-graph").onclick = () => openGraph(r.id);
+  if ($("retry-ai")) {
+    $("retry-ai").onclick = () => runAnalysis(r.id);
+    api("/api/status").then((s) => { if (s.retry_in && $("retry-ai")) countdown($("retry-ai"), s.retry_in, "Retry with AI"); }).catch(() => {});
+  }
   d.querySelectorAll("[data-person]").forEach((b) => (b.onclick = () => openInbox(b.dataset.person)));
   if (analyzed && view.changes.length) drawGraph(view);
 }
@@ -661,7 +730,12 @@ async function askDocs() {
       <div class="note" style="margin-top:8px">Answered by ${esc(r.model)} using context retrieved by the FalkorDB GraphRAG SDK${r.cached ? " · saved answer, served from FalkorDB" : ""}.</div>
     </div>`;
   } catch (e) {
-    $("ask-out").innerHTML = `<div class="panel" style="margin-top:16px"><div class="error">${esc(e.message)}</div></div>`;
+    const limited = e.status === 429;
+    const title = limited ? (e.kind === "day" ? "Daily AI limit reached" : "Gemini needs a short break") : "Couldn't get an answer";
+    const again = limited && (e.kind !== "day" || e.retry_after) ? '<button id="ask-retry">Ask again</button>' : "";
+    $("ask-out").innerHTML = `<div class="panel" style="margin-top:16px">${notice(limited ? "limit" : "error", title, e.message, again)}</div>`;
+    if ($("ask-retry")) { $("ask-retry").onclick = askDocs; countdown($("ask-retry"), e.retry_after || 60, "Ask again"); }
+    loadStatus().catch(() => {});
   } finally { btn.disabled = false; btn.textContent = "Ask"; }
 }
 $("ask-go").onclick = askDocs;
@@ -673,9 +747,12 @@ $("f-rel").onclick = () => { state.filter = "rel"; $("f-rel").classList.add("on"
 $("f-all").onclick = () => { state.filter = "all"; $("f-all").classList.add("on"); $("f-rel").classList.remove("on"); renderFeed(); };
 $("check").onclick = async () => {
   const btn = $("check"); btn.disabled = true; btn.textContent = "Checking RBI...";
-  try { const r = await api("/api/monitor/check", {}); toast(`Checked ${r.checked} RBI publications · ${r.new} new`); await loadFeed(); }
-  catch (e) { $("feed-error").textContent = e.message; }
-  finally { btn.disabled = false; btn.textContent = "Check for new regulations"; }
+  try {
+    const r = await api("/api/monitor/check", {});
+    toast(r.note ? `Checked ${r.checked} RBI publications · screened by keywords for now` : `Checked ${r.checked} RBI publications · ${r.new} new`);
+    await loadFeed();
+  } catch (e) { $("feed-note").innerHTML = notice("error", "Couldn't reach the RBI feed", `${e.message}. The feed will try again automatically.`); }
+  finally { btn.disabled = false; btn.textContent = "Check for new regulations"; loadStatus().catch(() => {}); }
 };
 $("reset").onclick = async () => {
   if (!confirm("Reset the demo? This clears analyzed regulations and inbox tasks.")) return;

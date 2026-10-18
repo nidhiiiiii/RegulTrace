@@ -58,12 +58,18 @@ def keyword_triage(item):
 
 
 def triage(items):
-    if items and analyze.has_key():
-        try:
-            return analyze.triage(items), "gpt"
-        except (analyze.OpenAIError, ValueError, KeyError) as exc:
-            print(f"triage fell back to keywords: {analyze.reason(exc)}")
-    return {item["id"]: keyword_triage(item) for item in items}, "keywords"
+    if not items:
+        return {}, "keywords", None
+    if not analyze.has_key():
+        return {item["id"]: keyword_triage(item) for item in items}, "keywords", "no AI key is set, so relevance was judged by keywords"
+    try:
+        verdicts = analyze.triage(items)
+        analyze.clear_error()
+        return verdicts, "gpt", None
+    except (analyze.OpenAIError, ValueError, KeyError) as exc:
+        note = f"{analyze.reason(exc)}, so relevance was judged by keywords for now"
+        print(f"triage fell back to keywords: {note}")
+        return {item["id"]: keyword_triage(item) for item in items}, "keywords", note
 
 
 def check():
@@ -71,12 +77,15 @@ def check():
     items = list(feed_items())
     new = {item["id"] for item in items if graph.add_circular(g, item)}
     stale = {c["id"] for c in graph.circulars(g) if c.get("triaged_by") == "keywords"} if analyze.has_key() else set()
-    verdicts, by = triage([item for item in items if item["id"] in new | stale])
+    pending = [item for item in items if item["id"] in new | stale]
+    verdicts, by, note = triage(pending)
     for cid, (relevant, reason) in verdicts.items():
         graph.set_triage(g, cid, relevant, reason, by)
     checked_at = datetime.now(IST).strftime("%d %b %Y, %H:%M IST")
     graph.set_meta(g, "last_checked", checked_at)
-    return {"checked": len(items), "new": len(new), "checked_at": checked_at}
+    if pending:
+        graph.set_meta(g, "triage_note", note or "")
+    return {"checked": len(items), "new": len(new), "checked_at": checked_at, "note": note if pending else None}
 
 
 def watch(interval=1800):

@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import time
 
 from dotenv import load_dotenv
 from openai import BadRequestError, OpenAI, OpenAIError
@@ -39,25 +40,67 @@ Only use section ids and control ids from the input. If nothing has to change, r
 Reply as JSON: {"relevant": true or false, "summary": "two plain-English sentences on what the regulation changes for PayNova", "changes": [{"section_id": "...", "current": "...", "proposed": "...", "reason": "...", "actions": [{"control_id": "...", "action": "..."}]}]}"""
 
 DURATION = re.compile(r"within (\d+) (days?|hours?)", re.I)
-last_error = {"text": None}
+last_error = {"text": None, "kind": None, "retry_after": None, "at": 0}
 
 
 def has_key():
     return provider() is not None
 
 
+def limit_info(exc):
+    text = str(exc)
+    if "insufficient_quota" in text:
+        return {"kind": "credits", "retry_after": None}
+    if not ("429" in text or "RESOURCE_EXHAUSTED" in text or "quota" in text.lower()):
+        return None
+    wait = (re.search(r"retry in (\d+(?:\.\d+)?)\s*s", text, re.I)
+            or re.search(r"retryDelay['\"]?\s*:\s*['\"](\d+(?:\.\d+)?)s", text))
+    return {"kind": "day" if "PerDay" in text else "minute", "retry_after": int(float(wait[1])) + 1 if wait else None}
+
+
+def wait_text(seconds):
+    if not seconds:
+        return None
+    hours, minutes = divmod(int(seconds) // 60, 60)
+    if hours:
+        return f"about {hours} h {minutes} min" if minutes else f"about {hours} h"
+    return f"about {max(1, minutes)} min" if seconds >= 90 else f"about {int(seconds)} seconds"
+
+
 def reason(exc):
-    text, name = str(exc), (provider() or {}).get("name", "The AI provider")
-    if "insufficient_quota" in text or "credit" in text:
+    name = (provider() or {}).get("name", "The AI provider")
+    limit = limit_info(exc)
+    if limit and limit["kind"] == "credits":
         message = f"the {name} account has no credits left"
-    elif "RESOURCE_EXHAUSTED" in text or "quota" in text.lower():
-        message = f"the {name} free quota is used up for now"
+    elif limit and limit["kind"] == "day":
+        message = f"{name}'s free daily limit is used up; it resets in {wait_text(limit['retry_after'])}" if limit["retry_after"] else f"{name}'s free daily limit is used up; it resets tomorrow"
+    elif limit:
+        message = f"{name}'s free per-minute limit was reached; it's paused for {wait_text(limit['retry_after'] or 60)}"
     elif isinstance(exc, json.JSONDecodeError):
         message = f"{name} returned an unreadable answer"
     else:
         message = f"{name} is unavailable ({type(exc).__name__})"
-    last_error["text"] = message
+    last_error.update(text=message, kind=limit["kind"] if limit else "error",
+                      retry_after=limit["retry_after"] if limit else None, at=time.time())
     return message
+
+
+def clear_error():
+    last_error.update(text=None, kind=None, retry_after=None, at=0)
+
+
+def status():
+    if not has_key():
+        return {"state": "off", "model": None, "problem": None, "kind": None, "retry_in": None}
+    retry_in = None
+    if last_error["kind"] in ("minute", "day") and (last_error["retry_after"] or last_error["kind"] == "minute"):
+        retry_in = int(last_error["at"] + (last_error["retry_after"] or 60) - time.time())
+        if retry_in <= 0:
+            clear_error()
+            retry_in = None
+    kind = last_error["kind"]
+    state = "ok" if not kind else ("limit" if kind in ("minute", "day", "credits") else "error")
+    return {"state": state, "model": MODEL, "problem": last_error["text"], "kind": kind, "retry_in": retry_in}
 
 
 def ask(system, payload):
@@ -144,15 +187,18 @@ def analyze(cid):
     picked = set(retrieval["seeds"]) | set(retrieval["related"])
     context = [s for s in sections if s["id"] in picked] or sections
     retrieval.update(context=len(context), total=len(sections), fallback=not picked)
-    mode, note = "gpt", None
+    mode, note, issue, retry_after = "gpt", None, None, None
     if has_key():
         try:
             result = ask(ANALYZE_PROMPT, {"regulation": {"title": circular["title"], "text": circular["text"][:6000]},
                                           "sections": context})
-            last_error["text"] = None
+            clear_error()
         except (OpenAIError, json.JSONDecodeError) as exc:
             mode, note, result = "offline", reason(exc), offline(circular, context)
+            issue, retry_after = last_error["kind"], last_error["retry_after"]
     else:
-        mode, note, result = "offline", "OPENAI_API_KEY is not set", offline(circular, context)
+        mode, note, issue, result = "offline", "no AI key is set (add GEMINI_API_KEY)", "off", offline(circular, context)
     graph.save_analysis(g, cid, validate(result, sections), mode, note, retrieval)
+    g.query("MATCH (c:Circular {id: $id}) SET c.ai_issue = $issue, c.retry_after = $retry, c.model = $model",
+            {"id": cid, "issue": issue, "retry": retry_after, "model": MODEL if mode == "gpt" else None})
     return graph.regulation_view(g, cid)

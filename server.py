@@ -57,8 +57,8 @@ def index():
 
 @app.get("/api/status")
 def status():
-    return {"llm": analyze.has_key() and not analyze.last_error["text"], "key": analyze.has_key(),
-            "model": analyze.MODEL, "problem": analyze.last_error["text"]}
+    state = analyze.status()
+    return {**state, "llm": state["state"] == "ok", "key": state["state"] != "off"}
 
 
 class Question(BaseModel):
@@ -78,15 +78,23 @@ def ask(body: Question):
     try:
         return ask_docs.ask(body.question.strip())
     except Exception as exc:
-        if "429" in str(exc) or "quota" in str(exc).lower():
-            raise HTTPException(429, "Gemini's free tier is busy right now. Try again in a minute, or pick a sample question.")
-        raise HTTPException(502, f"GraphRAG could not answer: {type(exc).__name__}: {str(exc)[:200]}")
+        limit = analyze.limit_info(exc)
+        if limit:
+            analyze.reason(exc)
+            if limit["kind"] == "day":
+                when = f"for {analyze.wait_text(limit['retry_after'])}" if limit["retry_after"] else "until tomorrow"
+                message = f"Gemini's free daily limit is used up, so Ask the docs is paused {when}. Questions answered before still work from saved answers."
+            else:
+                message = f"Gemini's free per-minute limit was reached. Ask again in {analyze.wait_text(limit['retry_after'] or 60)}; questions answered before still work from saved answers."
+            raise HTTPException(429, {"message": message, **limit})
+        raise HTTPException(502, {"message": f"Ask the docs couldn't answer right now ({type(exc).__name__}). Please try again.", "kind": "error"})
 
 
 @app.get("/api/regulations")
 def regulations():
     g = graph.connect()
-    return {"last_checked": graph.get_meta(g, "last_checked"), "items": graph.circulars(g)}
+    return {"last_checked": graph.get_meta(g, "last_checked"), "triage_note": graph.get_meta(g, "triage_note"),
+            "items": graph.circulars(g)}
 
 
 @app.post("/api/monitor/check")
