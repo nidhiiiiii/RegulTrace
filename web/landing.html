@@ -14,14 +14,14 @@
 :root {
   --bg: #fafaf7; --surface: #ffffff; --ink: #0e0e10; --ink-2: #3f3f46; --muted: #71717a; --line: #e7e5e0; --line-2: #d6d3cc;
   --accent: #1d4ed8; --accent-soft: #eef2ff; --ok: #15803d; --ok-soft: #ecfdf3; --bad: #b42318; --bad-soft: #fef3f2; --warn: #b54708;
-  --glow: rgba(234, 88, 12, .07); --glow-2: rgba(219, 39, 119, .05); --video: .3; --video-filter: grayscale(1) contrast(1.35) brightness(.92);
+  --glow: rgba(234, 88, 12, .07); --glow-2: rgba(219, 39, 119, .05); --video: .11; --video-filter: grayscale(1) contrast(1.05);
   --display: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif; --sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 :root[data-theme="dark"] {
   --bg: #0a0a0b; --surface: #121214; --ink: #f4f4f5; --ink-2: #d4d4d8; --muted: #a1a1aa; --line: #232327; --line-2: #2f2f35;
   --accent: #6b9bff; --accent-soft: #16203a; --ok: #4ade80; --ok-soft: #0f2418; --bad: #f97066; --bad-soft: #2a1513; --warn: #fdb022;
-  --glow: rgba(234, 88, 12, .06); --glow-2: rgba(219, 39, 119, .045); --video: .26; --video-filter: grayscale(1) contrast(1.1);
+  --glow: rgba(234, 88, 12, .06); --glow-2: rgba(219, 39, 119, .045); --video: .16; --video-filter: grayscale(1) contrast(1.05);
 }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
@@ -51,7 +51,7 @@ nav.scrolled { border-bottom-color: var(--line); }
 
 .hero { position: relative; overflow: hidden; border-bottom: 1px solid var(--line); }
 .bgvideo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: var(--video); filter: var(--video-filter); pointer-events: none; }
-.hero .bgvideo { -webkit-mask-image: radial-gradient(ellipse 80% 90% at 70% 35%, #000 40%, transparent 85%); mask-image: radial-gradient(ellipse 80% 90% at 70% 35%, #000 40%, transparent 85%); }
+.hero .bgvideo { -webkit-mask-image: radial-gradient(ellipse 70% 80% at 70% 30%, #000 30%, transparent 80%); mask-image: radial-gradient(ellipse 70% 80% at 70% 30%, #000 30%, transparent 80%); }
 .closing { position: relative; overflow: hidden; }
 .closing .bgvideo { -webkit-mask-image: radial-gradient(ellipse 75% 85% at 50% 50%, #000 35%, transparent 85%); mask-image: radial-gradient(ellipse 75% 85% at 50% 50%, #000 35%, transparent 85%); }
 .closing .wrap { position: relative; }
@@ -391,17 +391,21 @@ if (matchMedia("(prefers-reduced-motion: reduce)").matches) document.querySelect
 const fine = document.getElementById("fine");
 if (fine && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
   const to = parseFloat(fine.dataset.to);
-  fine.textContent = "0.00";
-  new IntersectionObserver((entries, obs) => {
-    if (!entries[0].isIntersecting) return;
-    obs.disconnect();
+  let frame = 0;
+  const countUp = () => {
+    cancelAnimationFrame(frame);
     const start = performance.now(), duration = 1800;
     const step = (now) => {
       const t = Math.min(1, (now - start) / duration);
       fine.textContent = (to * (1 - Math.pow(1 - t, 3))).toFixed(2);
-      if (t < 1) requestAnimationFrame(step);
+      if (t < 1) frame = requestAnimationFrame(step);
     };
-    requestAnimationFrame(step);
+    frame = requestAnimationFrame(step);
+  };
+  fine.textContent = "0.00";
+  new IntersectionObserver(([entry]) => {
+    if (entry.isIntersecting) countUp();
+    else { cancelAnimationFrame(frame); fine.textContent = "0.00"; }
   }, { threshold: 0.5 }).observe(fine);
 }
 fetch("/api/regulations").then((r) => r.ok ? r.json() : null).then((d) => {
