@@ -8,7 +8,20 @@ from openai import BadRequestError, OpenAI, OpenAIError
 import graph
 
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
-MODEL = os.getenv("OPENAI_MODEL", "gpt-5.5")
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+
+
+def provider():
+    if os.getenv("GEMINI_API_KEY"):
+        return {"name": "Gemini", "key": os.getenv("GEMINI_API_KEY"), "base_url": GEMINI_URL,
+                "model": os.getenv("GEMINI_MODEL") or "gemini-3.1-flash-lite"}
+    if os.getenv("OPENAI_API_KEY"):
+        return {"name": "OpenAI", "key": os.getenv("OPENAI_API_KEY"), "base_url": os.getenv("OPENAI_BASE_URL") or None,
+                "model": os.getenv("OPENAI_MODEL") or "gpt-5.5"}
+    return None
+
+
+MODEL = (provider() or {}).get("model", "gpt-5.5")
 
 TRIAGE_PROMPT = """You screen regulator publications for PayNova, an Indian fintech that runs UPI payments, offers digital loans through NBFC partners, and holds customer personal data.
 For each item decide whether it could require PayNova to change a policy, process or system. Treasury and bond auctions, bank capital adequacy, forex dealing, money market operations and statistics never do.
@@ -30,25 +43,28 @@ last_error = {"text": None}
 
 
 def has_key():
-    return bool(os.getenv("OPENAI_API_KEY"))
+    return provider() is not None
 
 
 def reason(exc):
-    text = str(exc)
+    text, name = str(exc), (provider() or {}).get("name", "The AI provider")
     if "insufficient_quota" in text or "credit" in text:
-        message = "the OpenAI account has no credits left"
+        message = f"the {name} account has no credits left"
+    elif "RESOURCE_EXHAUSTED" in text or "quota" in text.lower():
+        message = f"the {name} free quota is used up for now"
     elif isinstance(exc, json.JSONDecodeError):
-        message = "GPT returned an unreadable answer"
+        message = f"{name} returned an unreadable answer"
     else:
-        message = f"GPT is unavailable ({type(exc).__name__})"
+        message = f"{name} is unavailable ({type(exc).__name__})"
     last_error["text"] = message
     return message
 
 
 def ask(system, payload):
-    client = OpenAI(max_retries=1)
-    request = {"model": MODEL, "messages": [{"role": "system", "content": system},
-                                            {"role": "user", "content": json.dumps(payload)}]}
+    p = provider()
+    client = OpenAI(api_key=p["key"], base_url=p["base_url"], max_retries=1)
+    request = {"model": p["model"], "messages": [{"role": "system", "content": system},
+                                                 {"role": "user", "content": json.dumps(payload)}]}
     try:
         response = client.chat.completions.create(**request, response_format={"type": "json_object"})
     except BadRequestError:
