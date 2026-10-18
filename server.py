@@ -1,7 +1,7 @@
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -11,17 +11,22 @@ import graph
 import load_graph
 import monitor
 
+ON_VERCEL = bool(os.getenv("VERCEL"))
+
 
 @asynccontextmanager
 async def lifespan(_):
-    monitor.watch()
+    if not ON_VERCEL:
+        monitor.watch()
     yield
 
 
 app = FastAPI(title="RegulTrace", lifespan=lifespan)
-STATIC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
-INDEX = os.path.join(STATIC, "index.html")
-app.mount("/static", StaticFiles(directory=STATIC), name="static")
+ROOT = os.path.dirname(os.path.abspath(__file__))
+WEB = os.path.join(ROOT, "web")
+INDEX = os.path.join(WEB, "index.html")
+if not ON_VERCEL:
+    app.mount("/static", StaticFiles(directory=os.path.join(ROOT, "public", "static")), name="static")
 
 
 class Paste(BaseModel):
@@ -42,7 +47,7 @@ class TaskUpdate(BaseModel):
 
 @app.get("/")
 def landing():
-    return FileResponse(os.path.join(STATIC, "landing.html"))
+    return FileResponse(os.path.join(WEB, "landing.html"))
 
 
 @app.get("/app")
@@ -68,6 +73,14 @@ def check_now():
         return monitor.check()
     except OSError as exc:
         raise HTTPException(502, f"Could not reach the RBI feed: {exc}")
+
+
+@app.get("/api/cron/check")
+def cron_check(authorization: str | None = Header(default=None)):
+    secret = os.getenv("CRON_SECRET")
+    if secret and authorization != f"Bearer {secret}":
+        raise HTTPException(401, "Unauthorized")
+    return check_now()
 
 
 @app.post("/api/regulations/paste")
@@ -142,5 +155,5 @@ def confirm(mapping: Mapping):
 
 @app.post("/api/reset")
 def reset():
-    load_graph.load(os.getenv("FALKORDB_HOST", "localhost"), int(os.getenv("FALKORDB_PORT", "6379")))
+    load_graph.load()
     return {"ok": True}

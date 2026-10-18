@@ -3,12 +3,9 @@ import glob
 import json
 import os
 import re
-import sys
 from collections import defaultdict
 
-from falkordb import FalkorDB
-
-GRAPH = "paynova"
+from graph import GRAPH, client
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
 
@@ -38,8 +35,8 @@ def policy_documents():
     return versions, sections
 
 
-def load(host="localhost", port=6379):
-    db = FalkorDB(host=host, port=port)
+def load():
+    db = client()
     if GRAPH in db.list_graphs():
         db.select_graph(GRAPH).delete()
     g = db.select_graph(GRAPH)
@@ -87,4 +84,4 @@ def load(host="localhost", port=6379):
 
 
 if __name__ == "__main__":
-    load(*(sys.argv[1:2] or ["localhost"]))
+    load()
