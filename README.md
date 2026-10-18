@@ -55,6 +55,21 @@ RegulTrace is an agent: it runs on its own, decides what matters, and acts on wh
 
 If the language model is unavailable, a rule-based analyser takes over the Reason step, so the agent keeps working.
 
+## 🛟 Error handling
+
+RegulTrace runs on a free AI tier, so it treats AI limits as normal events, not crashes. Whatever fails, the app keeps working and tells you plainly what happened.
+
+| What goes wrong | What you see | What the app does |
+|---|---|---|
+| Gemini's **per-minute** limit is hit | An amber "AI paused for a moment" notice on the analysis, and the AI status pill counts down ("AI paused · back in 38s") | Falls back to the rule-based analyser; a **Retry with AI** button unlocks when the limit resets |
+| Gemini's **daily** limit is used up | "AI paused until the daily limit resets", with the reset time Gemini reports ("resets in about 1 h 50 min") | Rule-based results until the reset; nothing breaks |
+| The feed can't be screened by AI | "Screened by keywords for now" above the regulation list | Screens by keywords, then re-screens with AI on the next check |
+| Ask the docs is rate-limited | "Gemini needs a short break", with an **Ask again** button that counts down | Questions answered before still come back instantly from saved answers |
+| No AI key, or the AI account has no credits | "AI not connected" or "The AI account has no credits" | Rule-based mode across the app |
+| The RBI feed can't be reached | "Couldn't reach the RBI feed" | Keeps the last results and tries again on the next scheduled check |
+
+Limits are read from Gemini's own 429 response: whether the `PerMinute` or `PerDay` quota ran out, and the retry delay it sends. So every wait shown in the app is the real one (`analyze.limit_info`).
+
 ## 🛠️ How I built it
 
 **FalkorDB is the product, not a side database.** Every document, section, process, system, person, regulation, proposed change and inbox task is a node. The blast radius, the "who is responsible" lookup and every inbox are Cypher traversals. Without FalkorDB there is no answer to show.
