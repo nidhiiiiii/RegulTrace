@@ -96,6 +96,7 @@ textarea { min-height: 110px; resize: vertical; }
 .error { color: var(--bad); font-size: 13px; }
 .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 9px 16px; border-radius: 10px; font-size: 13px; }
 .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip { font-size: 12.5px; padding: 5px 11px; border-radius: 999px; }
 .chips button.on { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); font-weight: 600; }
 .task { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-top: 12px; }
 .task .actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
@@ -157,6 +158,7 @@ button.primary { background: var(--accent); }
     <button id="tab-team" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>Overview</button>
     <button id="tab-graph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="3"/><circle cx="5" cy="19" r="3"/><circle cx="19" cy="19" r="3"/><path d="M12 8v3M10.5 13.5l-4 3M13.5 13.5l4 3"/></svg>Company graph</button>
     <button id="tab-inbox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>Inboxes<span class="count" id="nav-open" hidden></span></button>
+    <button id="tab-ask"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Ask the docs</button>
   </div>
   <div class="foot">
     <div class="livebox"><span class="dot"></span><span id="live">Watching RBI</span></div>
@@ -229,6 +231,19 @@ button.primary { background: var(--accent); }
       <div class="chips" id="people"></div>
     </div>
     <div id="inbox"></div>
+  </section>
+
+  <section id="view-ask" hidden>
+    <div class="panel">
+      <h2>Ask PayNova's compliance documents</h2>
+      <div class="small muted" style="margin-bottom:10px">Powered by the FalkorDB GraphRAG SDK: it built a knowledge graph from PayNova's policy documents, and answers from what it retrieves there.</div>
+      <div class="row" style="gap:8px">
+        <input id="ask-q" placeholder="e.g. What is our deadline for erasure requests?">
+        <button class="primary" id="ask-go" style="flex:none">Ask</button>
+      </div>
+      <div class="chips" id="ask-samples" style="margin-top:10px"></div>
+    </div>
+    <div id="ask-out"></div>
   </section>
 </main>
 </div>
@@ -581,6 +596,7 @@ const PAGES = {
   team: ["Compliance overview", "New regulations, what they break, and who must act."],
   graph: ["Company graph", "Every compliance document, how it connects, and who is responsible."],
   inbox: ["Inboxes", "What each person has to do, and where it came from."],
+  ask: ["Ask the docs", "Plain-English answers from PayNova's own compliance documents."],
 };
 const ICON = {
   feed: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg>',
@@ -606,11 +622,11 @@ async function loadStats() {
 }
 
 function show(view) {
-  ["team", "graph", "inbox"].forEach((v) => { $(`view-${v}`).hidden = view !== v; $(`tab-${v}`).classList.toggle("on", view === v); });
+  ["team", "graph", "inbox", "ask"].forEach((v) => { $(`view-${v}`).hidden = view !== v; $(`tab-${v}`).classList.toggle("on", view === v); });
   $("page-title").textContent = PAGES[view][0];
   $("page-sub").textContent = PAGES[view][1];
   $("stats").hidden = view !== "team";
-  $("check").hidden = view === "inbox";
+  $("check").hidden = view === "inbox" || view === "ask";
   if (view === "inbox") { loadPeople().then(loadInbox); }
   if (view === "graph") { loadCompanyGraph().catch((e) => toast(e.message)); }
 }
@@ -622,6 +638,34 @@ function openInbox(id) { state.person = id; show("inbox"); }
 $("tab-team").onclick = () => show("team");
 $("tab-inbox").onclick = () => show("inbox");
 $("tab-graph").onclick = () => show("graph");
+$("tab-ask").onclick = () => show("ask");
+
+const ASK_SAMPLES = ["What is our deadline for erasure requests?", "Who has to report a cyber incident, and how fast?", "How long do we keep KYC records?", "What must a borrower see before signing a loan?"];
+$("ask-samples").innerHTML = ASK_SAMPLES.map((q, i) => `<button class="chip" data-i="${i}">${esc(q)}</button>`).join("");
+$("ask-samples").querySelectorAll("button").forEach((b) => (b.onclick = () => { $("ask-q").value = ASK_SAMPLES[b.dataset.i]; askDocs(); }));
+
+async function askDocs() {
+  const question = $("ask-q").value.trim();
+  if (!question) return toast("Type a question first.");
+  const btn = $("ask-go");
+  btn.disabled = true; btn.textContent = "Searching the graph...";
+  $("ask-out").innerHTML = "";
+  try {
+    const r = await api("/api/ask", { question });
+    $("ask-out").innerHTML = `<div class="panel" style="margin-top:16px">
+      <div class="small muted" style="margin-bottom:6px">${esc(question)}</div>
+      <div class="headline" style="font-size:16px;font-weight:600;white-space:pre-wrap">${esc(r.answer)}</div>
+      <details class="cypher" style="margin-top:12px"><summary>What the GraphRAG SDK retrieved from FalkorDB (${r.sources.length})</summary>
+        ${r.sources.map((s) => `<div class="resp-box">${esc(s.text)}${s.score != null ? ` <span class="muted small">· score ${Number(s.score).toFixed(2)}</span>` : ""}</div>`).join("")}
+      </details>
+      <div class="note" style="margin-top:8px">Answered by ${esc(r.model)} using context retrieved by the FalkorDB GraphRAG SDK${r.cached ? " · saved answer, served from FalkorDB" : ""}.</div>
+    </div>`;
+  } catch (e) {
+    $("ask-out").innerHTML = `<div class="panel" style="margin-top:16px"><div class="error">${esc(e.message)}</div></div>`;
+  } finally { btn.disabled = false; btn.textContent = "Ask"; }
+}
+$("ask-go").onclick = askDocs;
+$("ask-q").addEventListener("keydown", (e) => { if (e.key === "Enter") askDocs(); });
 $("toggle-paste").onclick = () => { $("paste").hidden = !$("paste").hidden; };
 $("paste-sample").onclick = () => { $("paste-title").value = SAMPLE.title; $("paste-text").value = SAMPLE.text; };
 $("paste-go").onclick = paste;

@@ -61,6 +61,28 @@ def status():
             "model": analyze.MODEL, "problem": analyze.last_error["text"]}
 
 
+class Question(BaseModel):
+    question: str
+
+
+@app.post("/api/ask")
+def ask(body: Question):
+    try:
+        import ask_docs
+    except ImportError:
+        raise HTTPException(503, "The GraphRAG SDK is not installed on this server.")
+    if not ask_docs.ready():
+        raise HTTPException(503, "Add GEMINI_API_KEY to enable Ask the docs.")
+    if not body.question.strip():
+        raise HTTPException(400, "Type a question first.")
+    try:
+        return ask_docs.ask(body.question.strip())
+    except Exception as exc:
+        if "429" in str(exc) or "quota" in str(exc).lower():
+            raise HTTPException(429, "Gemini's free tier is busy right now. Try again in a minute, or pick a sample question.")
+        raise HTTPException(502, f"GraphRAG could not answer: {type(exc).__name__}: {str(exc)[:200]}")
+
+
 @app.get("/api/regulations")
 def regulations():
     g = graph.connect()

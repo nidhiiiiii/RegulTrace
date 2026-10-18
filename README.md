@@ -52,7 +52,9 @@ A **Company graph** view shows every compliance document at once, with the respo
 
 **Live monitoring.** Python reads RBI's RSS feeds, stores each publication as a `Circular` node and de-duplicates by RBI's own id.
 
-**Stack:** FalkorDB (Docker) · Python · FastAPI · OpenAI GPT · Cytoscape.js · a single static HTML page.
+**Ask the docs, on the FalkorDB GraphRAG SDK.** The official GraphRAG SDK ingests PayNova's six policy documents into its own FalkorDB knowledge graph (`paynova_docs`), using a compliance ontology: Policy, Obligation, Process, Team, System, Regulator. Anyone can ask a plain-English question, such as "What is our deadline for erasure requests?", and the SDK answers from what it retrieves there, with the retrieved context shown. It runs on Gemini through a lightweight provider, and the deployment leaves out the SDK's optional local NER model, so it fits in a serverless function.
+
+**Stack:** FalkorDB (Docker / Cloud) · FalkorDB GraphRAG SDK · Python · FastAPI · OpenAI GPT · Gemini · Cytoscape.js · Vercel.
 
 ## 🕸️ Graph data model
 
@@ -140,24 +142,29 @@ All queries live in [`graph.py`](graph.py).
 
 ## 🚀 Run it locally
 
-You need Docker and Python 3.11+.
+You need Docker, Python 3.12+ and [uv](https://docs.astral.sh/uv/).
 
 ```bash
 docker run -d -p 6379:6379 -p 3000:3000 falkordb/falkordb:latest
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-.venv/bin/python load_graph.py
-.venv/bin/uvicorn server:app --port 8000
+uv sync
+uv run python load_graph.py
+uv run uvicorn server:app --port 8000
 ```
 
 Open http://localhost:8000. The FalkorDB Browser is at http://localhost:3000 (graph `paynova`).
 
 For GPT analysis, create a `.env` file with `OPENAI_API_KEY=...` (optional `OPENAI_MODEL`, default `gpt-5.5`). Without a key, RegulTrace uses its rule-based analyser.
 
+For **Ask the docs**, add `GEMINI_API_KEY=...` to `.env` and build the GraphRAG SDK knowledge graph once:
+
+```bash
+uv run python ask_docs.py build
+```
+
 To check everything works before a demo:
 
 ```bash
-.venv/bin/python demo_check.py
+uv run python demo_check.py
 ```
 
 **Try it:** click **+ Paste a new regulation → Use a sample → Analyze impact**, then open Ravi's inbox, then the **Company graph** tab.

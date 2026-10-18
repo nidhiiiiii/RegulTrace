@@ -1,0 +1,19 @@
+[project]
+name = "regultrace"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "falkordb",
+    "openai",
+    "python-dotenv",
+    "fastapi",
+    "uvicorn",
+    "graphrag-sdk==1.4.0",
+]
+
+[tool.uv]
+package = false
+override-dependencies = [
+    "gliner; sys_platform == 'never'",
+    "hnswlib; sys_platform == 'never'",
+]
