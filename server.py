@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import analyze
@@ -18,7 +19,9 @@ async def lifespan(_):
 
 
 app = FastAPI(title="RegulTrace", lifespan=lifespan)
-INDEX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "index.html")
+STATIC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+INDEX = os.path.join(STATIC, "index.html")
+app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
 
 class Paste(BaseModel):
@@ -38,6 +41,11 @@ class TaskUpdate(BaseModel):
 
 
 @app.get("/")
+def landing():
+    return FileResponse(os.path.join(STATIC, "landing.html"))
+
+
+@app.get("/app")
 def index():
     return FileResponse(INDEX)
 
