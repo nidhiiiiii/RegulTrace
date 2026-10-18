@@ -1,0 +1,545 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RegulTrace</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+<style>
+:root {
+  --bg: #f5f6fa; --panel: #ffffff; --ink: #111827; --muted: #6b7280; --line: #e5e7eb; --soft: #f3f4f6;
+  --accent: #4338ca; --accent-soft: #eef2ff; --warn: #b45309; --warn-soft: #fff7e6; --ok: #047857; --ok-soft: #ecfdf5;
+  --bad: #b91c1c; --bad-soft: #fef2f2;
+  --c-reg: #4338ca; --c-sec: #7c3aed; --c-ctl: #0f766e; --c-sys: #1d4ed8; --c-own: #c2410c; --edge: #cbd5e1; --edge-text: #64748b;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b0d12; --panel: #141821; --ink: #e5e7eb; --muted: #9ca3af; --line: #262b36; --soft: #1b2030;
+    --accent: #818cf8; --accent-soft: #1e2140; --warn: #fbbf24; --warn-soft: #2a2414; --ok: #34d399; --ok-soft: #10261d;
+    --bad: #f87171; --bad-soft: #2a1515; --edge: #3a4152; --edge-text: #9ca3af;
+  }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+header { display: flex; align-items: center; gap: 14px; padding: 12px 22px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.logo { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 18px; letter-spacing: -0.02em; }
+.mark { width: 28px; height: 28px; border-radius: 8px; background: var(--accent); display: grid; place-items: center; color: #fff; font-size: 15px; }
+.sub { color: var(--muted); font-size: 13px; }
+.spacer { flex: 1; }
+.live { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px var(--ok-soft); }
+.tabs { display: inline-flex; background: var(--soft); border-radius: 10px; padding: 3px; }
+.tabs button { border: 0; background: transparent; padding: 6px 12px; border-radius: 8px; color: var(--muted); }
+.tabs button.on { background: var(--panel); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 7px 12px; }
+button:hover { border-color: var(--accent); }
+button:disabled { opacity: .6; cursor: wait; }
+button.primary { background: var(--accent); color: #fff; border-color: transparent; font-weight: 600; }
+button.link { border: 0; background: none; color: var(--muted); padding: 4px 6px; font-size: 12.5px; }
+main { padding: 16px; }
+.grid { display: grid; grid-template-columns: 380px minmax(0, 1fr); gap: 16px; align-items: start; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px; }
+h3 { margin: 0; font-size: 16px; }
+.muted { color: var(--muted); }
+.small { font-size: 12.5px; }
+textarea, input { width: 100%; font: inherit; color: var(--ink); background: var(--soft); border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; }
+textarea { min-height: 110px; resize: vertical; }
+.row { display: flex; gap: 8px; align-items: center; }
+.filters { display: flex; gap: 6px; margin: 12px 0 8px; }
+.filters button { font-size: 12.5px; padding: 4px 10px; border-radius: 999px; }
+.filters button.on { background: var(--accent-soft); color: var(--accent); border-color: transparent; font-weight: 600; }
+.feed { display: flex; flex-direction: column; gap: 6px; max-height: calc(100vh - 330px); overflow: auto; }
+.reg { text-align: left; display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: 10px; }
+.reg.on { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.reg .t { font-weight: 600; line-height: 1.35; }
+.reg .meta { font-size: 11.5px; color: var(--muted); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.pill { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.ok { background: var(--ok-soft); color: var(--ok); }
+.pill.accent { background: var(--accent-soft); color: var(--accent); }
+.guide { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.guide div { background: var(--soft); border-radius: 10px; padding: 14px; }
+.guide b { display: block; font-size: 22px; color: var(--accent); }
+.step { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 10px; }
+.num { flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 13px; }
+.detail { display: flex; flex-direction: column; gap: 16px; }
+.headline { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+.headline em { font-style: normal; color: var(--accent); }
+#graph { height: 470px; width: 100%; border-radius: 10px; background: var(--soft); }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--muted); margin-top: 10px; }
+.legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; margin-right: 5px; vertical-align: -1px; }
+.change { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-top: 10px; }
+.change .where { font-weight: 650; }
+.change .ver { color: var(--muted); font-weight: 400; font-size: 12px; }
+.diff { margin: 8px 0 6px; display: grid; gap: 6px; }
+.diff div { padding: 8px 10px; border-radius: 8px; font-size: 13.5px; }
+.del { background: var(--bad-soft); }
+.del s { text-decoration-color: var(--bad); }
+.add { background: var(--ok-soft); }
+.diff span { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 2px; text-decoration: none; color: var(--muted); }
+.people { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin-top: 10px; }
+.person { border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+.who { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
+.avatar { flex: none; width: 34px; height: 34px; border-radius: 50%; background: var(--c-own); color: #fff; display: grid; place-items: center; font-weight: 700; }
+.person ul { margin: 0; padding-left: 18px; font-size: 13px; }
+.person li { margin-bottom: 4px; }
+.note { font-size: 12px; color: var(--muted); }
+.error { color: var(--bad); font-size: 13px; }
+.toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 9px 16px; border-radius: 10px; font-size: 13px; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chips button.on { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); font-weight: 600; }
+.task { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-top: 12px; }
+.task .actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.task.done { opacity: .65; }
+.your { background: var(--accent-soft); border-radius: 8px; padding: 9px 11px; margin-top: 8px; }
+:root { --c-pol: #6d28d9; }
+.resp-box { background: var(--soft); border-radius: 8px; padding: 10px 12px; margin-top: 10px; font-size: 13px; }
+.graphwrap { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 12px; margin-top: 12px; }
+#company { height: 640px; border-radius: 10px; background: var(--soft); }
+.nodeinfo { border: 1px solid var(--line); border-radius: 10px; padding: 14px; overflow: auto; max-height: 640px; }
+.nodeinfo .kind { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.nodeinfo h3 { margin: 4px 0 10px; }
+.nodeinfo .resp { background: var(--soft); border-radius: 8px; padding: 9px 11px; margin-bottom: 10px; }
+.nodeinfo ul { padding-left: 18px; margin: 6px 0 0; font-size: 13px; }
+details.cypher { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 10px; }
+details.cypher summary { cursor: pointer; font-weight: 600; font-size: 13px; color: var(--accent); }
+details.cypher .q { margin-top: 10px; }
+details.cypher pre { background: var(--soft); border-radius: 8px; padding: 10px 12px; font-size: 12px; overflow: auto; margin: 4px 0 0; white-space: pre-wrap; }
+@media (max-width: 1050px) { .graphwrap { grid-template-columns: 1fr; } }
+@media (max-width: 1050px) { .grid { grid-template-columns: 1fr; } .guide { grid-template-columns: 1fr; } .feed { max-height: none; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><div class="mark">R</div>RegulTrace</div>
+  <div class="sub">Compliance radar for PayNova</div>
+  <div class="spacer"></div>
+  <span class="live"><span class="dot"></span><span id="live">Watching RBI</span></span>
+  <button id="check">Check for new regulations</button>
+  <div class="tabs"><button id="tab-team" class="on">Compliance team</button><button id="tab-graph">Company graph</button><button id="tab-inbox">Inboxes</button></div>
+</header>
+
+<main>
+  <section id="view-team" class="grid">
+    <div class="panel">
+      <h2>Incoming regulations</h2>
+      <button id="toggle-paste" style="width:100%">+ Paste a new regulation</button>
+      <div id="paste" hidden style="margin-top:10px">
+        <input id="paste-title" placeholder="Title (optional), e.g. DPDP Amendment Rules 2026">
+        <textarea id="paste-text" style="margin-top:8px" placeholder="Paste the regulation text here..."></textarea>
+        <div class="row" style="margin-top:8px"><button class="primary" id="paste-go">Analyze impact</button><button class="link" id="paste-sample">Use a sample</button></div>
+      </div>
+      <div class="filters"><button id="f-rel" class="on">Affects PayNova</button><button id="f-all">All</button></div>
+      <div class="feed" id="feed"></div>
+      <div class="error" id="feed-error"></div>
+      <div class="row" style="justify-content:space-between;margin-top:10px"><span class="note" id="llm"></span><button class="link" id="reset">Reset demo</button></div>
+    </div>
+
+    <div>
+      <div class="panel" id="guide">
+        <h2>How it works</h2>
+        <div class="guide">
+          <div><b>1</b>RegulTrace watches the RBI website and flags new regulations that could affect PayNova.</div>
+          <div><b>2</b>Pick one on the left, or paste one. It is checked against PayNova's own policy documents.</div>
+          <div><b>3</b>You see exactly what must change and who must act. Each person gets their task in their inbox.</div>
+        </div>
+      </div>
+      <div class="detail" id="detail" hidden></div>
+    </div>
+  </section>
+
+  <section id="view-graph" hidden>
+    <div class="panel">
+      <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div><h2 style="margin-bottom:2px">PayNova's compliance documents</h2>
+          <div class="small muted">Every policy, its sections, the processes that carry them out, the systems they run on, and who is responsible. Click any box for details.</div></div>
+        <label class="row small">Highlight impact of
+          <select id="graph-reg" style="font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--soft);color:var(--ink);max-width:340px"></select>
+        </label>
+      </div>
+      <div class="graphwrap">
+        <div id="company"></div>
+        <aside id="node-info" class="nodeinfo"><div class="muted small">Click a box to see what it is and who is responsible for it.</div></aside>
+      </div>
+      <div class="legend">
+        <span><i style="background:var(--c-pol)"></i>Policy document</span><span><i style="background:var(--c-sec)"></i>Policy section</span>
+        <span><i style="background:var(--c-ctl)"></i>Process</span><span><i style="background:var(--c-sys)"></i>System</span><span><i style="background:var(--c-own)"></i>Person</span>
+        <span id="impact-note"></span>
+      </div>
+      <details class="cypher" id="graph-queries"></details>
+    </div>
+  </section>
+
+  <section id="view-inbox" hidden>
+    <div class="panel">
+      <h2>Whose inbox?</h2>
+      <div class="chips" id="people"></div>
+    </div>
+    <div id="inbox"></div>
+  </section>
+</main>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const SAMPLE = {
+  title: "DPDP (Amendment) Rules, 2026 - erasure timeline",
+  text: "In partial modification of the earlier rules, a data fiduciary shall erase personal data within 30 days of receiving a verified erasure request or withdrawal of consent, including copies held by processors.",
+};
+const COLOR = () => ({ Circular: css("--c-reg"), Section: css("--c-sec"), Control: css("--c-ctl"), System: css("--c-sys"), Owner: css("--c-own") });
+const ROW = { Circular: 0, Section: 1, Control: 2, System: 3, Owner: 4 };
+const REL = { CHANGES: "changes", IMPLEMENTED_BY: "carried out by", RUNS_ON: "runs on", DEPENDS_ON: "feeds", OWNED_BY: "owned by", APPROVES: "approved by" };
+const $ = (id) => document.getElementById(id);
+const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const first = (name) => (name || "").split(" - ").pop();
+const team = (name) => (name || "").split(" - ")[0];
+let state = { items: [], filter: "rel", selected: null, person: null, cy: null };
+
+async function api(path, body) {
+  const res = await fetch(path, body === undefined ? {} : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || res.statusText);
+  return data;
+}
+
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg; t.hidden = false;
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => (t.hidden = true), 2600);
+}
+
+async function loadStatus() {
+  const s = await api("/api/status");
+  $("llm").textContent = s.llm ? `Analysis by ${s.model}` : s.key ? `GPT unavailable (${s.problem}): rule-based analysis` : "No OpenAI key: rule-based analysis";
+}
+
+async function loadFeed() {
+  const r = await api("/api/regulations");
+  state.items = r.items;
+  $("live").textContent = r.last_checked ? `Watching RBI · checked ${r.last_checked}` : "Watching RBI · not checked yet";
+  renderFeed();
+}
+
+function badge(item) {
+  if (item.status === "analyzed") return item.relevant ? '<span class="pill ok">Analyzed</span>' : '<span class="pill">No change needed</span>';
+  return item.relevant ? '<span class="pill warn">Affects PayNova</span>' : '<span class="pill">Not relevant</span>';
+}
+
+function renderFeed() {
+  const list = state.items.filter((i) => state.filter === "all" || i.relevant);
+  $("f-rel").textContent = `Affects PayNova (${state.items.filter((i) => i.relevant).length})`;
+  $("f-all").textContent = `All (${state.items.length})`;
+  $("feed").innerHTML = list.map((i) => `
+    <button class="reg ${state.selected === i.id ? "on" : ""}" data-id="${esc(i.id)}">
+      <span class="t">${esc(i.title)}</span>
+      <span class="meta">${badge(i)}<span>${esc(i.source)} · ${esc(i.date)}</span></span>
+      <span class="meta">${esc(i.reason || "")}</span>
+    </button>`).join("") || '<div class="muted small">Nothing here yet. Click "Check for new regulations".</div>';
+  $("feed").querySelectorAll(".reg").forEach((b) => (b.onclick = () => select(b.dataset.id)));
+}
+
+async function select(id) {
+  state.selected = id;
+  renderFeed();
+  $("guide").hidden = true;
+  const view = await api(`/api/regulations/${encodeURIComponent(id)}`);
+  renderDetail(view);
+}
+
+async function runAnalysis(id) {
+  const btn = $("analyze");
+  if (btn) { btn.disabled = true; btn.textContent = "Checking against PayNova's policies..."; }
+  try {
+    const view = await api(`/api/regulations/${encodeURIComponent(id)}/analyze`, {});
+    await loadFeed();
+    renderDetail(view);
+  } catch (e) { toast(e.message); if (btn) { btn.disabled = false; btn.textContent = "Analyze impact"; } }
+}
+
+function renderDetail(view) {
+  const r = view.regulation, d = $("detail");
+  d.hidden = false;
+  const analyzed = r.status === "analyzed";
+  const c = view.counts || {};
+  const people = view.people.length;
+  const source = r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener">Read on rbi.org.in</a>` : "Pasted by the compliance team";
+  let html = `
+    <div class="panel">
+      <div class="step"><span class="num">1</span><div style="flex:1">
+        <h2 style="margin-bottom:4px">What changed</h2>
+        <h3>${esc(r.title)}</h3>
+        <div class="small muted" style="margin:4px 0 8px">${esc(r.source)} · ${esc(r.date)} · ${source}</div>
+        <div>${esc(analyzed ? r.summary : r.reason || "")}</div>
+        ${analyzed ? `<div class="note" style="margin-top:6px">${r.mode === "gpt" ? "Analyzed by GPT against PayNova's policy documents." : "Rule-based analysis" + (r.note ? ` (${esc(r.note)})` : "") + "."}</div>`
+          : `<button class="primary" id="analyze" style="margin-top:10px">Analyze impact</button>`}
+        ${analyzed && view.retrieval ? retrievalHtml(view.retrieval) : ""}
+      </div></div>
+    </div>`;
+  if (analyzed && !view.changes.length) {
+    html += `<div class="panel"><div class="headline">No PayNova policy needs to change for this regulation.</div><div class="muted small" style="margin-top:4px">Nobody was notified.</div>
+      <details class="cypher">${queriesHtml(view.queries || [])}</details></div>`;
+  }
+  if (analyzed && view.changes.length) {
+    html += `
+    <div class="panel">
+      <div class="step"><span class="num">2</span><div style="flex:1">
+        <h2 style="margin-bottom:4px">Blast radius</h2>
+        <div class="headline">This touches <em>${c.Section || 0} policy section${c.Section === 1 ? "" : "s"}</em>, <em>${c.Control || 0} processes</em>, <em>${c.System || 0} systems</em> and <em>${people} ${people === 1 ? "person" : "people"}</em>.</div>
+        <div class="small muted">Read top to bottom: how this regulation reaches each person at PayNova. <button class="link" id="to-graph" style="color:var(--accent)">See it on the company graph →</button></div>
+      </div></div>
+      <div id="graph"></div>
+      <div class="legend">
+        <span><i style="background:var(--c-reg)"></i>New regulation</span><span><i style="background:var(--c-sec)"></i>Policy section</span>
+        <span><i style="background:var(--c-ctl)"></i>Process</span><span><i style="background:var(--c-sys)"></i>System</span><span><i style="background:var(--c-own)"></i>Person</span>
+      </div>
+      <details class="cypher">${queriesHtml(view.queries || [])}</details>
+    </div>
+    <div class="panel">
+      <div class="step"><span class="num">3</span><div style="flex:1"><h2 style="margin-bottom:0">What must change in our policies</h2></div></div>
+      ${view.changes.map((ch) => `
+        <div class="change">
+          <div class="where">${esc(ch.policy)}, section ${esc(ch.number)}: ${esc(ch.section)} <span class="ver">· current version ${esc(ch.version || "")}</span></div>
+          <div class="diff"><div class="del"><span>Now</span><s>${esc(ch.current)}</s></div><div class="add"><span>Change to</span>${esc(ch.proposed)}</div></div>
+          <div class="small muted"><b>Why:</b> ${esc(ch.reason)}</div>
+        </div>`).join("")}
+    </div>
+    <div class="panel">
+      <div class="step"><span class="num">4</span><div style="flex:1"><h2 style="margin-bottom:0">Who must act</h2><div class="small muted">Each person has been sent these tasks in their inbox.</div></div></div>
+      <div class="people">${view.people.map((p) => `
+        <div class="person">
+          <div class="who"><div class="avatar">${esc(first(p.name)[0])}</div><div><b>${esc(first(p.name))}</b><div class="small muted">${esc(team(p.name))}</div></div></div>
+          <ul>${p.tasks.map((t) => `<li>${esc(t.text)} <span class="pill ${t.status === "open" ? "accent" : "ok"}">${esc(t.status)}</span></li>`).join("")}</ul>
+          <button class="link" data-person="${esc(p.id)}">Open ${esc(first(p.name))}'s inbox →</button>
+        </div>`).join("")}</div>
+    </div>`;
+  }
+  d.innerHTML = html;
+  if ($("analyze")) $("analyze").onclick = () => runAnalysis(r.id);
+  if ($("to-graph")) $("to-graph").onclick = () => openGraph(r.id);
+  d.querySelectorAll("[data-person]").forEach((b) => (b.onclick = () => openInbox(b.dataset.person)));
+  if (analyzed && view.changes.length) drawGraph(view);
+}
+
+function drawGraph(view) {
+  const sectionLabel = Object.fromEntries(view.changes.map((ch) => [ch.section_id, `${ch.policy.replace(" Policy", "")} §${ch.number}`]));
+  const policySections = {};
+  view.edges.filter((e) => e.rel === "HAS_SECTION").forEach((e) => (policySections[e.src] = (policySections[e.src] || []).concat(e.dst)));
+  const edges = [];
+  for (const e of view.edges) {
+    if (e.rel === "HAS_SECTION") continue;
+    if (e.rel === "OWNED_BY" && policySections[e.src]) policySections[e.src].forEach((s) => edges.push({ src: s, rel: "APPROVES", dst: e.dst }));
+    else edges.push(e);
+  }
+  const nodes = view.nodes.filter((n) => n.type in ROW);
+  const rows = {};
+  nodes.forEach((n) => (rows[ROW[n.type]] = (rows[ROW[n.type]] || []).concat(n)));
+  const pos = {};
+  Object.entries(rows).forEach(([r, list]) => list.forEach((n, i) => (pos[n.id] = { x: (i - (list.length - 1) / 2) * 200, y: Number(r) * 105 })));
+  const color = COLOR();
+  if (state.cy) state.cy.destroy();
+  state.cy = cytoscape({
+    container: $("graph"), layout: { name: "preset" }, userZoomingEnabled: false, userPanningEnabled: false, boxSelectionEnabled: false, autoungrabify: true,
+    elements: [
+      ...nodes.map((n) => ({ data: { id: n.id, color: color[n.type], label: n.type === "Section" ? sectionLabel[n.id] || n.name : n.type === "Owner" ? first(n.name) + " (" + team(n.name) + ")" : n.name }, position: pos[n.id] })),
+      ...edges.filter((e) => pos[e.src] && pos[e.dst]).map((e, i) => ({ data: { id: "e" + i, source: e.src, target: e.dst, label: REL[e.rel] || e.rel } })),
+    ],
+    style: [
+      { selector: "node", style: { shape: "round-rectangle", width: 176, height: 54, "background-color": "data(color)", label: "data(label)", color: "#fff", "font-size": 11, "font-weight": 600, "text-wrap": "wrap", "text-max-width": 160, "text-valign": "center", "text-halign": "center" } },
+      { selector: "edge", style: { width: 1.6, "curve-style": "bezier", "line-color": css("--edge"), "target-arrow-color": css("--edge"), "target-arrow-shape": "triangle", label: "data(label)", "font-size": 9, color: css("--edge-text"), "text-background-color": css("--soft"), "text-background-opacity": 1, "text-background-padding": 2 } },
+    ],
+  });
+  state.cy.fit(undefined, 30);
+}
+
+async function paste() {
+  const text = $("paste-text").value.trim();
+  if (!text) return toast("Paste the regulation text first.");
+  const btn = $("paste-go");
+  btn.disabled = true; btn.textContent = "Checking against PayNova's policies...";
+  try {
+    const view = await api("/api/regulations/paste", { title: $("paste-title").value, text });
+    state.filter = "all";
+    await loadFeed();
+    state.selected = view.regulation.id;
+    renderFeed();
+    $("guide").hidden = true;
+    renderDetail(view);
+    $("paste").hidden = true; $("paste-text").value = ""; $("paste-title").value = "";
+  } catch (e) { toast(e.message); }
+  finally { btn.disabled = false; btn.textContent = "Analyze impact"; }
+}
+
+async function loadPeople() {
+  const list = await api("/api/people");
+  if (!state.person) state.person = (list.find((p) => p.open) || list[0]).id;
+  $("people").innerHTML = list.map((p) => `<button class="${p.id === state.person ? "on" : ""}" data-id="${esc(p.id)}">${esc(first(p.name))} · ${esc(team(p.name))}${p.open ? ` <span class="pill warn">${p.open} open</span>` : ""}</button>`).join("");
+  $("people").querySelectorAll("button").forEach((b) => (b.onclick = () => { state.person = b.dataset.id; loadPeople(); loadInbox(); }));
+}
+
+async function loadInbox() {
+  const tasks = await api(`/api/inbox/${encodeURIComponent(state.person)}`);
+  const who = $("people").querySelector("button.on");
+  const name = who ? who.textContent.split(" · ")[0] : "";
+  if (!tasks.length) { $("inbox").innerHTML = `<div class="panel" style="margin-top:16px"><div class="headline">Nothing for ${esc(name)} right now.</div></div>`; return; }
+  const open = tasks.filter((t) => t.status === "open").length;
+  $("inbox").innerHTML = `<div class="panel" style="margin-top:16px"><div class="headline">Hi ${esc(name)}, ${open ? `${open} task${open === 1 ? "" : "s"} need${open === 1 ? "s" : ""} your attention.` : "you're all caught up."}</div>
+    ${tasks.map((t) => `
+      <div class="task ${t.status === "done" ? "done" : ""}">
+        <div class="row" style="justify-content:space-between"><b>${esc(t.regulation)}</b><span class="pill ${t.status === "open" ? "warn" : t.status === "question" ? "accent" : "ok"}">${esc(t.status)}</span></div>
+        <div class="small muted">${esc(t.policy)}, section ${esc(t.number)}: ${esc(t.section)}</div>
+        <div class="diff"><div class="del"><span>Now</span><s>${esc(t.current)}</s></div><div class="add"><span>Change to</span>${esc(t.proposed)}</div></div>
+        <div class="your"><b>${t.kind === "approve" ? "Please review:" : "Your action" + (t.control ? ` (${esc(t.control)})` : "") + ":"}</b> ${esc(t.text)}</div>
+        ${t.note ? `<div class="note" style="margin-top:6px">Note: ${esc(t.note)}</div>` : ""}
+        <div class="actions">
+          <button data-t="${esc(t.id)}" data-s="accepted">Accept</button>
+          <button data-t="${esc(t.id)}" data-s="done">Mark done</button>
+          <button data-t="${esc(t.id)}" data-s="question">Ask a question</button>
+        </div>
+      </div>`).join("")}</div>`;
+  $("inbox").querySelectorAll("[data-t]").forEach((b) => (b.onclick = async () => {
+    const note = b.dataset.s === "question" ? prompt("What would you like to ask the compliance team?") || "" : "";
+    if (b.dataset.s === "question" && !note) return;
+    await api(`/api/tasks/${encodeURIComponent(b.dataset.t)}`, { status: b.dataset.s, note });
+    toast(b.dataset.s === "question" ? "Question sent to the compliance team" : `Marked ${b.dataset.s}`);
+    loadPeople(); loadInbox();
+  }));
+}
+
+function retrievalHtml(rt) {
+  const chips = (list) => list.map((t) => `<span class="pill accent" style="font-weight:500">${esc(t)}</span>`).join(" ");
+  if (rt.fallback) return `<div class="resp-box"><b>GraphRAG:</b> FalkorDB found no policy section matching this regulation, so all ${rt.total} sections were checked.</div>`;
+  return `<div class="resp-box"><b>GraphRAG context from FalkorDB:</b> ${rt.context} of ${rt.total} policy sections were retrieved for the analysis (${Number(rt.ms).toFixed(1)} ms).
+    <div style="margin-top:6px">Matched the regulation's wording: ${chips(rt.seed_titles || [])}</div>
+    ${(rt.related_titles || []).length ? `<div style="margin-top:4px">Linked through a shared process: ${chips(rt.related_titles)}</div>` : ""}</div>`;
+}
+
+function queriesHtml(queries) {
+  return `<summary>How FalkorDB found this (${queries.length} Cypher quer${queries.length === 1 ? "y" : "ies"})</summary>` +
+    queries.map((q) => `<div class="q"><b>${esc(q.name)}</b> <span class="muted small">· ${Number(q.ms).toFixed(2)} ms</span><pre>${esc(q.cypher)}</pre></div>`).join("");
+}
+
+function spread(items, gap) {
+  items.sort((a, b) => a.y - b.y);
+  items.forEach((it, i) => { if (i && it.y < items[i - 1].y + gap) it.y = items[i - 1].y + gap; });
+}
+
+function companyLayout(data) {
+  const X = { Policy: 0, Section: 270, Control: 580, System: 870, Owner: 1150 };
+  const byId = Object.fromEntries(data.nodes.map((n) => [n.id, { ...n, y: 0 }]));
+  const out = {}, inn = {};
+  data.edges.forEach((e) => { (out[e.src] = out[e.src] || []).push(e.dst); (inn[e.dst] = inn[e.dst] || []).push(e.src); });
+  const sections = data.nodes.filter((n) => n.type === "Section").sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
+  sections.forEach((s, i) => (byId[s.id].y = i * 60));
+  const mean = (ids) => { const ys = ids.filter((i) => byId[i]).map((i) => byId[i].y); return ys.length ? ys.reduce((a, b) => a + b, 0) / ys.length : 0; };
+  const place = (type, neighbours, gap) => {
+    const list = Object.values(byId).filter((n) => n.type === type);
+    list.forEach((n) => (n.y = mean(neighbours(n.id))));
+    spread(list, gap);
+  };
+  const ofType = (ids, type) => (ids || []).filter((i) => byId[i] && byId[i].type === type);
+  place("Policy", (id) => ofType(out[id], "Section"), 70);
+  place("Control", (id) => ofType(inn[id], "Section"), 66);
+  place("System", (id) => ofType(inn[id], "Control"), 66);
+  place("Owner", (id) => inn[id] || [], 80);
+  return Object.fromEntries(Object.values(byId).map((n) => [n.id, { x: X[n.type], y: n.y }]));
+}
+
+function nodeLabel(n) {
+  const who = n.responsible.map(first).join(", ");
+  if (n.type === "Section") return `§${n.number} ${n.name}\n${who}`;
+  if (n.type === "Policy") return `${n.name}\nv${n.version || "-"} · ${who}`;
+  if (n.type === "Owner") return `${first(n.name)}\n${team(n.name)}`;
+  return `${n.name}\n${who}`;
+}
+
+async function loadCompanyGraph() {
+  const sel = $("graph-reg");
+  const analyzed = state.items.filter((i) => i.status === "analyzed" && i.relevant);
+  if (state.graphReg && !analyzed.some((i) => i.id === state.graphReg)) state.graphReg = null;
+  sel.innerHTML = `<option value="">Nothing (show everything)</option>` + analyzed.map((i) => `<option value="${esc(i.id)}" ${i.id === state.graphReg ? "selected" : ""}>${esc(i.title)}</option>`).join("");
+  sel.onchange = () => { state.graphReg = sel.value || null; loadCompanyGraph(); };
+  const data = await api("/api/company-graph" + (state.graphReg ? `?regulation=${encodeURIComponent(state.graphReg)}` : ""));
+  const pos = companyLayout(data), affected = new Set(data.affected);
+  const color = { Policy: css("--c-pol"), Section: css("--c-sec"), Control: css("--c-ctl"), System: css("--c-sys"), Owner: css("--c-own") };
+  const nodes = Object.fromEntries(data.nodes.map((n) => [n.id, n]));
+  if (state.cg) state.cg.destroy();
+  state.cg = cytoscape({
+    container: $("company"), layout: { name: "preset" }, wheelSensitivity: 0.25, minZoom: 0.2, maxZoom: 2, boxSelectionEnabled: false, autoungrabify: true,
+    elements: [
+      ...data.nodes.map((n) => ({ data: { id: n.id, label: nodeLabel(n), color: color[n.type] }, position: pos[n.id],
+        classes: state.graphReg ? (affected.has(n.id) ? "hit" : "dim") : "" })),
+      ...data.edges.filter((e) => pos[e.src] && pos[e.dst]).map((e, i) => ({ data: { id: "c" + i, source: e.src, target: e.dst },
+        classes: state.graphReg ? (affected.has(e.src) && affected.has(e.dst) ? "hit" : "dim") : "" })),
+    ],
+    style: [
+      { selector: "node", style: { shape: "round-rectangle", width: 200, height: 48, "background-color": "data(color)", label: "data(label)", color: "#fff", "font-size": 10.5, "font-weight": 600, "text-wrap": "wrap", "text-max-width": 186, "text-valign": "center", "text-halign": "center" } },
+      { selector: "edge", style: { width: 1.2, "curve-style": "bezier", "line-color": css("--edge"), "target-arrow-color": css("--edge"), "target-arrow-shape": "triangle", "arrow-scale": 0.8 } },
+      { selector: "node.hit", style: { "border-width": 4, "border-color": css("--warn") } },
+      { selector: "edge.hit", style: { width: 3, "line-color": css("--warn"), "target-arrow-color": css("--warn") } },
+      { selector: ".dim", style: { opacity: 0.18 } },
+      { selector: "node:selected", style: { "border-width": 4, "border-color": css("--ink") } },
+    ],
+  });
+  state.cg.fit(undefined, 20);
+  state.cg.on("tap", "node", (ev) => showNode(nodes[ev.target.id()], data, affected));
+  $("impact-note").innerHTML = state.graphReg ? `<span class="pill warn">${data.affected.filter((i) => nodes[i]).length} items affected</span>` : "";
+  $("graph-queries").innerHTML = queriesHtml(data.queries);
+}
+
+function showNode(n, data, affected) {
+  const names = Object.fromEntries(data.nodes.map((x) => [x.id, x]));
+  const links = data.edges.filter((e) => e.src === n.id || e.dst === n.id).map((e) => {
+    const other = names[e.src === n.id ? e.dst : e.src];
+    const verb = { HAS_SECTION: e.src === n.id ? "has section" : "is part of", IMPLEMENTED_BY: e.src === n.id ? "carried out by" : "carries out", RUNS_ON: e.src === n.id ? "runs on" : "used by", DEPENDS_ON: e.src === n.id ? "feeds" : "fed by", OWNED_BY: e.src === n.id ? "owned by" : "owns" }[e.rel];
+    return other ? `<li>${esc(verb)} <b>${esc(other.type === "Section" ? `${other.policy} §${other.number}` : other.name)}</b></li>` : "";
+  }).join("");
+  const kind = { Policy: "Policy document", Section: "Policy section", Control: "Process", System: "System", Owner: "Person" }[n.type];
+  const resp = n.type === "Owner" ? "" : `<div class="resp"><div class="kind">Responsible</div>${n.responsible.length ? n.responsible.map((r) => `<b>${esc(first(r))}</b> <span class="muted small">${esc(team(r))}</span>`).join("<br>") : '<span class="muted">Nobody assigned</span>'}</div>`;
+  $("node-info").innerHTML = `
+    <div class="kind">${esc(kind)}</div>
+    <h3>${esc(n.type === "Section" ? `${n.policy} §${n.number}: ${n.name}` : n.name)}</h3>
+    ${state.graphReg && affected.has(n.id) ? '<div class="pill warn" style="display:inline-block;margin-bottom:10px">Affected by the selected regulation</div>' : ""}
+    ${resp}
+    ${n.text ? `<div class="small" style="margin-bottom:10px">${esc(n.text)}</div>` : ""}
+    ${n.version ? `<div class="small muted" style="margin-bottom:10px">Version ${esc(n.version)}</div>` : ""}
+    <div class="kind">Connected to</div><ul>${links}</ul>`;
+}
+
+function show(view) {
+  ["team", "graph", "inbox"].forEach((v) => { $(`view-${v}`).hidden = view !== v; $(`tab-${v}`).classList.toggle("on", view === v); });
+  if (view === "inbox") { loadPeople().then(loadInbox); }
+  if (view === "graph") { loadCompanyGraph().catch((e) => toast(e.message)); }
+}
+
+function openGraph(id) { state.graphReg = id; show("graph"); }
+
+function openInbox(id) { state.person = id; show("inbox"); }
+
+$("tab-team").onclick = () => show("team");
+$("tab-inbox").onclick = () => show("inbox");
+$("tab-graph").onclick = () => show("graph");
+$("toggle-paste").onclick = () => { $("paste").hidden = !$("paste").hidden; };
+$("paste-sample").onclick = () => { $("paste-title").value = SAMPLE.title; $("paste-text").value = SAMPLE.text; };
+$("paste-go").onclick = paste;
+$("f-rel").onclick = () => { state.filter = "rel"; $("f-rel").classList.add("on"); $("f-all").classList.remove("on"); renderFeed(); };
+$("f-all").onclick = () => { state.filter = "all"; $("f-all").classList.add("on"); $("f-rel").classList.remove("on"); renderFeed(); };
+$("check").onclick = async () => {
+  const btn = $("check"); btn.disabled = true; btn.textContent = "Checking RBI...";
+  try { const r = await api("/api/monitor/check", {}); toast(`Checked ${r.checked} RBI publications · ${r.new} new`); await loadFeed(); }
+  catch (e) { $("feed-error").textContent = e.message; }
+  finally { btn.disabled = false; btn.textContent = "Check for new regulations"; }
+};
+$("reset").onclick = async () => {
+  if (!confirm("Reset the demo? This clears analyzed regulations and inbox tasks.")) return;
+  await api("/api/reset", {});
+  state.selected = null; $("detail").hidden = true; $("guide").hidden = false;
+  await api("/api/monitor/check", {}).catch(() => {});
+  loadFeed();
+};
+loadStatus().catch(() => {});
+loadFeed().catch((e) => ($("feed-error").textContent = e.message));
+</script>
+</body>
+</html>
