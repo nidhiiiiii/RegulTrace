@@ -110,8 +110,13 @@ h2 em { font-style: normal; color: var(--muted); }
 .sub { color: var(--ink-2); max-width: 600px; font-size: 17px; margin: 0; }
 
 .problem { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: end; }
-.big { font: 600 clamp(96px, 14vw, 190px)/.85 var(--display); letter-spacing: -.06em; }
-.big-caption { color: var(--muted); font-size: 14px; margin-top: 18px; max-width: 360px; }
+.big { font: 600 clamp(64px, 8.4vw, 124px)/.9 var(--display); letter-spacing: -.045em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.big .cur { font-size: .55em; vertical-align: .38em; margin-right: .04em; font-weight: 500; }
+.big .unit { font-size: .3em; letter-spacing: -.01em; margin-left: .14em; color: var(--muted); font-weight: 500; }
+.big-caption { color: var(--muted); font-size: 14.5px; margin-top: 18px; max-width: 400px; }
+.second { display: flex; align-items: baseline; gap: 14px; margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--line); max-width: 400px; }
+.second b { font: 600 44px/1 var(--display); letter-spacing: -.04em; }
+.second span { color: var(--muted); font-size: 14px; line-height: 1.45; }
 .problem p { font-size: 18px; color: var(--ink-2); margin: 0 0 18px; }
 .facts { border-top: 1px solid var(--line); margin-top: 26px; }
 .facts div { display: flex; justify-content: space-between; gap: 20px; padding: 14px 0; border-bottom: 1px solid var(--line); font-size: 14.5px; }
@@ -244,8 +249,9 @@ footer.site a:hover { color: var(--ink); }
   <div class="wrap problem">
     <div class="reveal">
       <div class="label"><span class="rule"></span>The problem</div>
-      <div class="big">353</div>
-      <div class="big-caption">penalties imposed by the RBI on the companies it regulates in FY25, totalling ₹54.78 crore.</div>
+      <div class="big" aria-label="54.78 crore rupees"><span class="cur">₹</span><span id="fine" data-to="54.78">54.78</span><span class="unit">crore</span></div>
+      <div class="big-caption">in penalties imposed by the RBI on the companies it regulates, in FY25 alone.</div>
+      <div class="second"><b>353</b><span>separate penalties, mostly for rules the companies already knew: KYC, cyber security, fraud reporting.</span></div>
     </div>
     <div class="reveal">
       <h2>Fines rarely come from laws nobody knew. <em>They come from the gap after a rule changes.</em></h2>
@@ -382,6 +388,22 @@ addEventListener("scroll", () => nav.classList.toggle("scrolled", scrollY > 8), 
 const io = new IntersectionObserver((entries) => entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }), { threshold: 0.12 });
 document.querySelectorAll(".reveal").forEach((el) => io.observe(el));
 if (matchMedia("(prefers-reduced-motion: reduce)").matches) document.querySelectorAll(".bgvideo").forEach((v) => v.pause());
+const fine = document.getElementById("fine");
+if (fine && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  const to = parseFloat(fine.dataset.to);
+  fine.textContent = "0.00";
+  new IntersectionObserver((entries, obs) => {
+    if (!entries[0].isIntersecting) return;
+    obs.disconnect();
+    const start = performance.now(), duration = 1800;
+    const step = (now) => {
+      const t = Math.min(1, (now - start) / duration);
+      fine.textContent = (to * (1 - Math.pow(1 - t, 3))).toFixed(2);
+      if (t < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }, { threshold: 0.5 }).observe(fine);
+}
 fetch("/api/regulations").then((r) => r.ok ? r.json() : null).then((d) => {
   if (!d) return;
   const rbi = d.items.filter((i) => i.source.startsWith("RBI")).length;
