@@ -14,14 +14,14 @@
 :root {
   --bg: #fafaf7; --surface: #ffffff; --ink: #0e0e10; --ink-2: #3f3f46; --muted: #71717a; --line: #e7e5e0; --line-2: #d6d3cc;
   --accent: #1d4ed8; --accent-soft: #eef2ff; --ok: #15803d; --ok-soft: #ecfdf3; --bad: #b42318; --bad-soft: #fef3f2; --warn: #b54708;
-  --glow: rgba(234, 88, 12, .07); --glow-2: rgba(219, 39, 119, .05); --video: .11;
+  --glow: rgba(234, 88, 12, .07); --glow-2: rgba(219, 39, 119, .05); --video: .3; --video-filter: grayscale(1) contrast(1.35) brightness(.92);
   --display: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif; --sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 :root[data-theme="dark"] {
   --bg: #0a0a0b; --surface: #121214; --ink: #f4f4f5; --ink-2: #d4d4d8; --muted: #a1a1aa; --line: #232327; --line-2: #2f2f35;
   --accent: #6b9bff; --accent-soft: #16203a; --ok: #4ade80; --ok-soft: #0f2418; --bad: #f97066; --bad-soft: #2a1513; --warn: #fdb022;
-  --glow: rgba(234, 88, 12, .06); --glow-2: rgba(219, 39, 119, .045); --video: .16;
+  --glow: rgba(234, 88, 12, .06); --glow-2: rgba(219, 39, 119, .045); --video: .26; --video-filter: grayscale(1) contrast(1.1);
 }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
@@ -50,8 +50,11 @@ nav.scrolled { border-bottom-color: var(--line); }
 .icon-btn svg { width: 16px; height: 16px; }
 
 .hero { position: relative; overflow: hidden; border-bottom: 1px solid var(--line); }
-.hero video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: var(--video); filter: grayscale(1) contrast(1.05);
-  -webkit-mask-image: radial-gradient(ellipse 70% 80% at 70% 30%, #000 30%, transparent 80%); mask-image: radial-gradient(ellipse 70% 80% at 70% 30%, #000 30%, transparent 80%); pointer-events: none; }
+.bgvideo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: var(--video); filter: var(--video-filter); pointer-events: none; }
+.hero .bgvideo { -webkit-mask-image: radial-gradient(ellipse 80% 90% at 70% 35%, #000 40%, transparent 85%); mask-image: radial-gradient(ellipse 80% 90% at 70% 35%, #000 40%, transparent 85%); }
+.closing { position: relative; overflow: hidden; }
+.closing .bgvideo { -webkit-mask-image: radial-gradient(ellipse 75% 85% at 50% 50%, #000 35%, transparent 85%); mask-image: radial-gradient(ellipse 75% 85% at 50% 50%, #000 35%, transparent 85%); }
+.closing .wrap { position: relative; }
 .hero::before { content: ""; position: absolute; inset: 0; background: radial-gradient(700px 420px at 85% 0%, var(--glow), transparent 70%), radial-gradient(600px 400px at 0% 100%, var(--glow-2), transparent 70%); pointer-events: none; }
 .hero .wrap { position: relative; display: grid; grid-template-columns: 1.05fr .95fr; gap: 56px; align-items: center; padding-top: 88px; padding-bottom: 96px; }
 .eyebrow { display: inline-flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
@@ -192,7 +195,7 @@ footer.site a:hover { color: var(--ink); }
 </nav>
 
 <header class="hero">
-  <video src="/static/hero.mp4" autoplay muted loop playsinline aria-hidden="true"></video>
+  <video class="bgvideo" src="/static/hero.mp4" autoplay muted loop playsinline aria-hidden="true"></video>
   <div class="wrap">
     <div>
       <div class="eyebrow"><span class="rule"></span>Regulatory change management for Indian fintechs</div>
@@ -349,6 +352,7 @@ footer.site a:hover { color: var(--ink); }
 </section>
 
 <section class="closing">
+  <video class="bgvideo" src="/static/hero.mp4" autoplay muted loop playsinline aria-hidden="true"></video>
   <div class="wrap">
     <h2 class="reveal">See your blast radius <em>before the inspector does.</em></h2>
     <p class="sub reveal">The demo company, PayNova, has six policies, nine processes, six systems and five owners loaded.</p>
@@ -377,7 +381,7 @@ const nav = document.getElementById("nav");
 addEventListener("scroll", () => nav.classList.toggle("scrolled", scrollY > 8), { passive: true });
 const io = new IntersectionObserver((entries) => entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }), { threshold: 0.12 });
 document.querySelectorAll(".reveal").forEach((el) => io.observe(el));
-if (matchMedia("(prefers-reduced-motion: reduce)").matches) document.querySelector(".hero video").pause();
+if (matchMedia("(prefers-reduced-motion: reduce)").matches) document.querySelectorAll(".bgvideo").forEach((v) => v.pause());
 fetch("/api/regulations").then((r) => r.ok ? r.json() : null).then((d) => {
   if (!d) return;
   const rbi = d.items.filter((i) => i.source.startsWith("RBI")).length;
