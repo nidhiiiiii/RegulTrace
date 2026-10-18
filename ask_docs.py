@@ -10,7 +10,7 @@ from graphrag_sdk import (Attribute, ConnectionConfig, Embedder, Entity, FalkorD
                           GraphStore, LLMExtractor, LLMInterface, Ontology, Relation, VectorStore)
 from graphrag_sdk.core.models import LLMResponse
 from graphrag_sdk.retrieval.strategies.local import LocalRetrieval
-from openai import OpenAI
+from openai import OpenAI, RateLimitError
 
 import graph
 
@@ -23,6 +23,7 @@ GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 LLM_MODEL = os.getenv("GRAPHRAG_LLM", "gemini-flash-lite-latest")
 EMBED_MODEL = os.getenv("GRAPHRAG_EMBEDDER", "gemini-embedding-001")
 DIMENSIONS = int(os.getenv("GRAPHRAG_DIMENSIONS", "768"))
+FALLBACK_MODELS = ["gemini-flash-lite-latest", "gemini-3.1-flash-lite"]
 
 ONTOLOGY = Ontology(
     entities=[
@@ -56,12 +57,18 @@ class GeminiLLM(LLMInterface):
     def __init__(self, model):
         super().__init__(model_name=model)
         self.client = gemini()
+        self.models = [model] + [m for m in FALLBACK_MODELS if m != model]
 
     def invoke(self, prompt, **kwargs):
         options = {k: v for k, v in kwargs.items() if k in ("temperature", "max_tokens", "response_format")}
-        response = self.client.chat.completions.create(
-            model=self.model_name, messages=[{"role": "user", "content": prompt}], **options)
-        return LLMResponse(content=response.choices[0].message.content or "")
+        for i, model in enumerate(self.models):
+            try:
+                response = self.client.chat.completions.create(
+                    model=model, messages=[{"role": "user", "content": prompt}], **options)
+                return LLMResponse(content=response.choices[0].message.content or "")
+            except RateLimitError:
+                if i == len(self.models) - 1:
+                    raise
 
 
 class GeminiEmbedder(Embedder):
