@@ -175,6 +175,22 @@ footer.site a:hover { color: var(--ink); }
   .cap { padding: 24px 0 !important; border-right: 0 !important; }
   .navlinks { display: none; }
 }
+.vs { display: grid; grid-template-columns: 1fr 1.15fr 1.15fr; border-top: 1px solid var(--line); margin-top: 48px; font-size: 14.5px; }
+.vs > div { padding: 15px 20px 15px 0; border-bottom: 1px solid var(--line); }
+.vs .h { font-size: 12px; font-weight: 500; color: var(--muted); padding: 12px 20px 12px 0; }
+.vs .h.ours { color: var(--ink); font-weight: 600; }
+.vs .q { font-weight: 600; }
+.vs .no { color: var(--muted); }
+.vs .no::before { content: "✕"; color: var(--bad); font-weight: 600; margin-right: 8px; }
+.vs .yes::before { content: "✓"; color: var(--ok); font-weight: 600; margin-right: 8px; }
+.vs small { display: none; }
+@media (max-width: 760px) {
+  .vs { grid-template-columns: 1fr; }
+  .vs .h { display: none; }
+  .vs > div { padding: 6px 0; border-bottom: 0; }
+  .vs .q { padding-top: 18px; border-top: 1px solid var(--line); }
+  .vs small { display: inline; color: var(--muted); font-size: 12px; margin-right: 6px; }
+}
 .btn { white-space: nowrap; }
 @media (max-width: 600px) {
   .nav { gap: 12px; }
@@ -192,7 +208,7 @@ footer.site a:hover { color: var(--ink); }
 <nav id="nav">
   <div class="wrap nav">
     <a href="/" aria-label="RegulTrace home"><img class="brand light" src="/static/brand/regultrace-logo-on-light.svg" alt="RegulTrace"><img class="brand dark" src="/static/brand/regultrace-logo-on-dark.svg" alt="RegulTrace"></a>
-    <div class="navlinks"><a href="#problem">Why</a><a href="#how">How the agent works</a><a href="#graph">The graph</a><a href="#capabilities">Capabilities</a></div>
+    <div class="navlinks"><a href="#problem">Why</a><a href="#how">How the agent works</a><a href="#graph">The graph</a><a href="#chatgpt">Why not ChatGPT</a><a href="#capabilities">Capabilities</a></div>
     <div class="grow"></div>
     <button class="btn icon-btn" id="theme" aria-label="Switch light or dark mode"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></button>
     <a class="btn solid" href="/app">Open live demo</a>
@@ -338,6 +354,23 @@ footer.site a:hover { color: var(--ink); }
           <circle cx="532" cy="162" r="13" fill="#ea580c"/><text x="526" y="166" style="fill:#fff;font-size:11px;font-weight:600">M</text>
         </g>
       </svg>
+    </div>
+  </div>
+</section>
+
+<section id="chatgpt">
+  <div class="wrap">
+    <div class="label reveal"><span class="rule"></span>Why not just ask ChatGPT?</div>
+    <h2 class="reveal">A chatbot can read the rule. <em>It doesn't know your company.</em></h2>
+    <p class="sub reveal">Paste a circular into ChatGPT and you get a good summary. You don't get the deletion job Ravi owns, the warehouse it runs on, or a task in Ravi's inbox. That knowledge lives in how your company is wired, so RegulTrace keeps it in a graph and lets the AI work only from what the graph returns.</p>
+    <div class="vs reveal">
+        <div class="h"></div><div class="h">ChatGPT or any chatbot</div><div class="h ours">RegulTrace</div>
+        <div class="q">Knows who owns what</div><div class="no"><small>Chatbot</small>Only what you paste into the chat</div><div class="yes"><small>RegulTrace</small>Every policy, process, system and owner, kept in FalkorDB</div>
+        <div class="q">Finds everything affected</div><div class="no"><small>Chatbot</small>Can miss a process or a person, and answers vary run to run</div><div class="yes"><small>RegulTrace</small>Follows every connection in the graph, every time</div>
+        <div class="q">Notices new rules</div><div class="no"><small>Chatbot</small>Waits for you to ask</div><div class="yes"><small>RegulTrace</small>Watches RBI every 30 minutes and acts on its own</div>
+        <div class="q">Can invent people</div><div class="no"><small>Chatbot</small>Yes: it can name owners who don't exist</div><div class="yes"><small>RegulTrace</small>No: owners come only from edges in the graph</div>
+        <div class="q">Shows its proof</div><div class="no"><small>Chatbot</small>A confident paragraph</div><div class="yes"><small>RegulTrace</small>The path through your company and the Cypher behind it</div>
+        <div class="q">Gets the work done</div><div class="no"><small>Chatbot</small>Gives you text to forward by email</div><div class="yes"><small>RegulTrace</small>Puts a task in each owner's inbox and tracks it</div>
     </div>
   </div>
 </section>
