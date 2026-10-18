@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>RegulTrace</title>
-<meta name="description" content="RegulTrace reads every new RBI, DPDP and CERT-In rule, finds the exact clauses in your policies it breaks, and assigns the fix to the person who owns it.">
+<meta name="description" content="RegulTrace is a compliance agent that reads every new RBI, DPDP and CERT-In rule, finds the exact clauses in your policies it breaks, and assigns the fix to the person who owns it.">
 <link rel="icon" href="/static/brand/favicon.svg"><link rel="apple-touch-icon" href="/static/brand/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -192,7 +192,7 @@ footer.site a:hover { color: var(--ink); }
 <nav id="nav">
   <div class="wrap nav">
     <a href="/" aria-label="RegulTrace home"><img class="brand light" src="/static/brand/regultrace-logo-on-light.svg" alt="RegulTrace"><img class="brand dark" src="/static/brand/regultrace-logo-on-dark.svg" alt="RegulTrace"></a>
-    <div class="navlinks"><a href="#problem">Why</a><a href="#how">How it works</a><a href="#graph">The graph</a><a href="#capabilities">Capabilities</a></div>
+    <div class="navlinks"><a href="#problem">Why</a><a href="#how">How the agent works</a><a href="#graph">The graph</a><a href="#capabilities">Capabilities</a></div>
     <div class="grow"></div>
     <button class="btn icon-btn" id="theme" aria-label="Switch light or dark mode"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></button>
     <a class="btn solid" href="/app">Open live demo</a>
@@ -203,13 +203,13 @@ footer.site a:hover { color: var(--ink); }
   <video class="bgvideo" src="/static/hero.mp4" autoplay muted loop playsinline aria-hidden="true"></video>
   <div class="wrap">
     <div>
-      <div class="eyebrow"><span class="rule"></span>Regulatory change management for Indian fintechs</div>
+      <div class="eyebrow"><span class="rule"></span>The compliance agent for Indian fintechs</div>
       <h1>The regulation changed.<br><em>Your policies didn't.</em></h1>
-      <p class="lede">RegulTrace reads every new RBI, DPDP and CERT-In rule, finds the exact clauses in your policies it breaks, and assigns the fix to the person who owns it, before an inspection does.</p>
+      <p class="lede">RegulTrace is a compliance agent. It reads every new RBI, DPDP and CERT-In rule, finds the exact clauses in your policies it breaks, and assigns the fix to the person who owns it, before an inspection does.</p>
       <div class="ctas">
         <a class="btn solid" href="/app">Open live demo
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
-        <a class="textlink" href="#how">See how it works</a>
+        <a class="textlink" href="#how">See how the agent works</a>
       </div>
       <div class="status mono"><span class="pulse"></span><span id="live">Watching RBI publications</span></div>
     </div>
@@ -235,7 +235,7 @@ footer.site a:hover { color: var(--ink); }
         <div class="owner"><span class="av" style="background:#0d9488">R</span><span class="who">Ravi<small>Data Engineering</small></span><span class="task">Update deletion job</span></div>
         <div class="owner"><span class="av" style="background:#ea580c">M</span><span class="who">Meena<small>Security</small></span><span class="task">Check encryption keys</span></div>
       </div>
-      <footer><span class="mono">Traced through FalkorDB</span><span class="mono">0.7 ms</span></footer>
+      <footer><span class="mono">Traced by the agent · FalkorDB</span><span class="mono">0.7 ms</span></footer>
     </div>
   </div>
 </header>
@@ -267,21 +267,21 @@ footer.site a:hover { color: var(--ink); }
 
 <section id="how">
   <div class="wrap">
-    <div class="label reveal"><span class="rule"></span>How it works</div>
-    <h2 class="reveal">From new rule to named owner, <em>in one pass.</em></h2>
-    <p class="sub reveal">No applicability matrix, no email chains. RegulTrace keeps your policies, processes, systems and people in one graph, so a change anywhere shows up everywhere it matters.</p>
+    <div class="label reveal"><span class="rule"></span>How the agent works</div>
+    <h2 class="reveal">Watch, retrieve, reason, act. <em>On its own, every 30 minutes.</em></h2>
+    <p class="sub reveal">The agent works from one graph of your policies, processes, systems and people. Nobody has to ask it: it checks the regulator, decides what matters, and acts on what the graph shows.</p>
     <div class="steps">
       <div class="step reveal">
-        <div class="n mono">01</div><h3>Detect</h3>
-        <p>Reads RBI's notification and press-release feeds every 30 minutes and screens out what doesn't apply to you.</p>
+        <div class="n mono">01</div><h3>Watch</h3>
+        <p>Checks RBI's notification and press-release feeds every 30 minutes; an LLM screens out what doesn't apply to you.</p>
         <div class="frag">
           <div class="row"><span class="ink2">DPDP erasure timeline</span><span class="tag warn">Affects you</span></div>
           <div class="row"><span class="ink2">91-day T-bill auction</span><span class="tag">Not relevant</span></div>
         </div>
       </div>
       <div class="step reveal">
-        <div class="n mono">02</div><h3>Trace</h3>
-        <p>Finds the policy sections the rule touches, then follows the graph to every process, system and person behind them.</p>
+        <div class="n mono">02</div><h3>Retrieve</h3>
+        <p>FalkorDB full-text search finds the sections the rule touches; the graph pulls in every process, system and person behind them.</p>
         <div class="frag chain">
           <span><i style="background:#1d4ed8"></i>New rule</span>
           <span><i style="background:#7c3aed"></i>Retention policy §3</span>
@@ -290,16 +290,16 @@ footer.site a:hover { color: var(--ink); }
         </div>
       </div>
       <div class="step reveal">
-        <div class="n mono">03</div><h3>Rewrite</h3>
-        <p>Drafts the exact change to each affected sentence, with the reason, and flags related sections to review.</p>
+        <div class="n mono">03</div><h3>Reason</h3>
+        <p>Drafts the exact change to each affected sentence, using only what the graph returned, and flags related sections to review.</p>
         <div class="frag">
           <div class="row"><span class="ink2"><s style="text-decoration-color:var(--bad)">within 45 days</s></span><span class="mono" style="color:var(--muted)">now</span></div>
           <div class="row"><span><b>within 30 days</b></span><span class="mono" style="color:var(--ok)">proposed</span></div>
         </div>
       </div>
       <div class="step reveal">
-        <div class="n mono">04</div><h3>Assign</h3>
-        <p>Every owner gets their own task, to accept, complete or question, with the path that explains why it's theirs.</p>
+        <div class="n mono">04</div><h3>Act</h3>
+        <p>Writes the change into the graph and gives each owner their task, to accept, complete or question, with the path that explains why.</p>
         <div class="frag">
           <div class="row"><span class="ink2">Hi Ravi, 1 task needs you</span></div>
           <div class="row"><span class="tag">Accept</span><span class="tag">Mark done</span><span class="tag">Ask</span></div>
