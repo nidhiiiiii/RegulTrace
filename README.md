@@ -4,7 +4,7 @@
 
 **Every new rule, traced to the people who must act.**
 
-RegulTrace watches Indian regulators for new rules, checks each one against a company's own compliance documents, shows the blast radius as a graph, writes the exact policy edits, and puts a task in the inbox of every person who has to act. Built on FalkorDB for Graph Hacks: Context for AI Agents (WeMakeDevs × FalkorDB).
+RegulTrace is a compliance agent. It watches Indian regulators for new rules, checks each one against a company's own compliance documents, shows the blast radius as a graph, writes the exact policy edits, and puts a task in the inbox of every person who has to act. Built on FalkorDB for Graph Hacks: Context for AI Agents (WeMakeDevs × FalkorDB).
 
 **Tracks:** Track 03, Company Brain (primary) · Track 01, Agents That Act on Connected Data
 
@@ -42,19 +42,32 @@ RegulTrace sits inside the company. It already holds the company's compliance do
 
 A **Company graph** view shows every compliance document at once, with the responsible person on every box. Pick a regulation and everything it touches lights up.
 
+## 🤖 How the agent works
+
+RegulTrace is an agent: it runs on its own, decides what matters, and acts on what the graph shows. Nobody has to ask it.
+
+| Step | What the agent does | Built with |
+|---|---|---|
+| **Watch** | Checks RBI's notification and press-release feeds every 30 minutes (a daily Vercel cron in production) and screens each publication for relevance to PayNova. | `monitor.py`, Gemini |
+| **Retrieve** | Finds the policy sections the rule touches with a FalkorDB full-text search, then follows the graph to every process, system and person behind them. | `graph.py` (`RETRIEVE`, `BLAST`) |
+| **Reason** | Drafts the exact change to each affected sentence and one action per affected process, using only the sections and processes the graph returned. | `analyze.py`, Gemini |
+| **Act** | Writes the proposed changes into the graph, puts a task in each owner's inbox, and flags related sections that share a process. | `graph.py` (`RIPPLE`), FalkorDB |
+
+If the language model is unavailable, a rule-based analyser takes over the Reason step, so the agent keeps working.
+
 ## 🛠️ How I built it
 
 **FalkorDB is the product, not a side database.** Every document, section, process, system, person, regulation, proposed change and inbox task is a node. The blast radius, the "who is responsible" lookup and every inbox are Cypher traversals. Without FalkorDB there is no answer to show.
 
 **GraphRAG retrieval.** A FalkorDB full-text index on policy sections finds the sections that match the regulation's wording, ranked by how many of its terms they contain. The graph then expands to other sections that share a process with those matches, because if two sections are carried out by the same deletion job, a change to one puts the other at risk. Only that subgraph goes to the language model. For the sample DPDP amendment, it retrieves 4 of 24 sections in under a millisecond.
 
-**Agent.** OpenAI GPT reads the regulation with the retrieved sections and returns structured JSON: the exact sentence that no longer complies, the replacement, the reason, and one action per affected process. The graph, not the model, decides who gets each task. The model can only cite section and process ids that came out of FalkorDB, and anything else is dropped. If there's no API key or the API fails, a rule-based analyser takes over, so the demo never dies.
+**The agent's reasoning step.** An LLM (Gemini by default, through its OpenAI-compatible API; any OpenAI-compatible model works) reads the regulation with the retrieved sections and returns structured JSON: the exact sentence that no longer complies, the replacement, the reason, and one action per affected process. The graph, not the model, decides who gets each task. The model can only cite section and process ids that came out of FalkorDB, and anything else is dropped. If there's no API key or the API fails, a rule-based analyser takes over, so the demo never dies.
 
 **Live monitoring.** Python reads RBI's RSS feeds, stores each publication as a `Circular` node and de-duplicates by RBI's own id.
 
 **Ask the docs, on the FalkorDB GraphRAG SDK.** The official GraphRAG SDK ingests PayNova's six policy documents into its own FalkorDB knowledge graph (`paynova_docs`), using a compliance ontology: Policy, Obligation, Process, Team, System, Regulator. Anyone can ask a plain-English question, such as "What is our deadline for erasure requests?", and the SDK answers from what it retrieves there, with the retrieved context shown. It runs on Gemini through a lightweight provider, and the deployment leaves out the SDK's optional local NER model, so it fits in a serverless function.
 
-**Stack:** FalkorDB (Docker / Cloud) · FalkorDB GraphRAG SDK · Python · FastAPI · OpenAI GPT · Gemini · Cytoscape.js · Vercel.
+**Stack:** FalkorDB (Docker / Cloud) · FalkorDB GraphRAG SDK · Python · FastAPI · Gemini (or any OpenAI-compatible LLM) · Cytoscape.js · Vercel.
 
 ## 🕸️ Graph data model
 
@@ -153,9 +166,9 @@ uv run uvicorn server:app --port 8000
 
 Open http://localhost:8000. The FalkorDB Browser is at http://localhost:3000 (graph `paynova`).
 
-For GPT analysis, create a `.env` file with `OPENAI_API_KEY=...` (optional `OPENAI_MODEL`, default `gpt-5.5`). Without a key, RegulTrace uses its rule-based analyser.
+For AI analysis, add `GEMINI_API_KEY=...` to a `.env` file (optional `GEMINI_MODEL`, default `gemini-3.1-flash-lite`). An OpenAI key works too: `OPENAI_API_KEY`, with optional `OPENAI_BASE_URL` and `OPENAI_MODEL`. Without a key, RegulTrace uses its rule-based analyser.
 
-For **Ask the docs**, add `GEMINI_API_KEY=...` to `.env` and build the GraphRAG SDK knowledge graph once:
+For **Ask the docs**, which uses the same `GEMINI_API_KEY`, build the GraphRAG SDK knowledge graph once:
 
 ```bash
 uv run python ask_docs.py build
@@ -173,18 +186,19 @@ uv run python demo_check.py
 
 1. **An amendment of an amendment found nothing.** My first query followed `SUPERSEDES` only one step back. The first amendment worked. A second amendment returned zero results, which would have broken live on stage. Making the traversal unbounded (`*0..`) fixed it, and the smoke test now checks a two-step chain.
 2. **Full-text search ranked the wrong sections first.** One long OR query scored every "Scope" section above the section that actually mattered, because those sections mention "personal data". I moved the ranking into Cypher: search each term separately and rank sections by how many distinct terms they match. The erasure rule now retrieves Retention §3 first.
-3. **Most real regulations don't matter to a fintech.** Today's RBI feed was forex dealing, capital adequacy and bond auctions. A keyword filter let a statistics bulletin through because it mentions "loans". GPT triage, with an explicit list of what never applies, fixed that.
+3. **Most real regulations don't matter to a fintech.** Today's RBI feed was forex dealing, capital adequacy and bond auctions. A keyword filter let a statistics bulletin through because it mentions "loans". LLM triage, with an explicit list of what never applies, fixed that.
 4. **The rule-based fallback edited the wrong sentence.** "Processing stops within 7 days" got changed to 30 days because the sentence mentions erasure in passing. And in "acknowledged within 2 days and resolved within 30 days", it replaced the wrong deadline. Sentence-level matching and picking the deadline whose verb matches the regulation fixed both.
 5. **Explaining compliance to normal humans.** My first UI showed "Clause, Control, System" panels side by side. The first person who tried it said they didn't understand anything. I rebuilt it as four plain steps: what changed, blast radius, what must change, who must act.
 
 ## 🏆 Accomplishments that I'm proud of
 
+- **A real agent loop.** It watches, retrieves, reasons and acts on its own, every 30 minutes, and every step is grounded in the graph.
 - **The graph does the work.** In the validated erasure scenario, keyword search finds 2 affected items; the graph finds 8, including the 3 people who have to act, none of whom appear next to the word "erasure".
 - **Real GraphRAG.** FalkorDB's full-text index plus a graph hop picks the context. 4 of 24 sections, retrieved in under a millisecond.
 - **Every answer shows its path and its query.** Nothing is a black box. The Cypher and its timing sit under every result.
 - **Live, not mocked.** The regulation feed is RBI's real RSS feed, checked every 30 minutes.
 - **The AI can't invent people.** Tasks are assigned by graph ownership, and the model can only reference ids FalkorDB returned.
-- **It never dies on stage.** No key, no wifi to OpenAI, no problem: the rule-based analyser takes over.
+- **It never dies on stage.** No key, no connection to the model, no problem: the rule-based analyser takes over.
 
 ## 📚 What I learned
 
@@ -200,13 +214,13 @@ uv run python demo_check.py
 
 ## 🔭 What's next for RegulTrace
 
-**Immediate:** connect GPT triage to every new feed item, and add SEBI, IRDAI and MeitY feeds next to RBI.
+**Immediate:** let the agent choose its own graph tools (tool calling, then MCP), and add SEBI, IRDAI and MeitY feeds next to RBI.
 **Short term:** import real policy documents (PDF, Confluence, Google Docs) into sections automatically; send tasks to Slack and email; when the policy owner approves, write the new section as a new version that `SUPERSEDES` the old one.
 **Long term:** one isolated FalkorDB graph per company, deployed on FalkorDB Cloud, so every Indian fintech, NBFC and co-operative bank can see its blast radius the day a circular lands.
 
 ## 🤖 AI assistance (disclosure)
 
-I used AI coding assistants during development, for research, scaffolding and writing code. I chose the problem and the product flow, made the design decisions, and tested every feature end to end. Inside the product, **OpenAI GPT** screens new regulations and drafts the policy redlines.
+I used AI coding assistants during development, for research, scaffolding and writing code. I chose the problem and the product flow, made the design decisions, and tested every feature end to end. Inside the product, an LLM (**Gemini** by default) screens new regulations and drafts the policy redlines.
 
 ## 📄 Data
 
@@ -214,7 +228,7 @@ PayNova is a fictional company. Its policies, processes, systems and people are 
 
 ## Built With
 
-FalkorDB · Cypher · Python · FastAPI · OpenAI GPT · Cytoscape.js · Docker · RBI RSS feeds
+FalkorDB · FalkorDB GraphRAG SDK · Cypher · Python · FastAPI · Gemini · Cytoscape.js · Docker · Vercel · RBI RSS feeds
 
 ## Sources
 
