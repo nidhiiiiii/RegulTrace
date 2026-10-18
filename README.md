@@ -1,5 +1,7 @@
 # RegulTrace
 
+**Live demo: https://regultrace.vercel.app**
+
 **Every new rule, traced to the people who must act.**
 
 RegulTrace watches Indian regulators for new rules, checks each one against a company's own compliance documents, shows the blast radius as a graph, writes the exact policy edits, and puts a task in the inbox of every person who has to act. Built on FalkorDB for Graph Hacks: Context for AI Agents (WeMakeDevs × FalkorDB).
