@@ -4,12 +4,13 @@ import threading
 import time
 import urllib.request
 import xml.etree.ElementTree as ET
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 
 import analyze
 import graph
 
+IST = timezone(timedelta(hours=5, minutes=30))
 FEEDS = {
     "RBI notification": "https://www.rbi.org.in/notifications_rss.xml",
     "RBI press release": "https://www.rbi.org.in/pressreleases_rss.xml",
@@ -73,7 +74,7 @@ def check():
     verdicts, by = triage([item for item in items if item["id"] in new | stale])
     for cid, (relevant, reason) in verdicts.items():
         graph.set_triage(g, cid, relevant, reason, by)
-    checked_at = datetime.now().strftime("%d %b %Y, %H:%M")
+    checked_at = datetime.now(IST).strftime("%d %b %Y, %H:%M IST")
     graph.set_meta(g, "last_checked", checked_at)
     return {"checked": len(items), "new": len(new), "checked_at": checked_at}
 

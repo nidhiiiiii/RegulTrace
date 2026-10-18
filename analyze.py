@@ -3,7 +3,7 @@ import os
 import re
 
 from dotenv import load_dotenv
-from openai import OpenAI, OpenAIError
+from openai import BadRequestError, OpenAI, OpenAIError
 
 import graph
 
@@ -46,12 +46,16 @@ def reason(exc):
 
 
 def ask(system, payload):
-    response = OpenAI(max_retries=1).chat.completions.create(
-        model=MODEL,
-        messages=[{"role": "system", "content": system}, {"role": "user", "content": json.dumps(payload)}],
-        response_format={"type": "json_object"},
-    )
-    return json.loads(response.choices[0].message.content)
+    client = OpenAI(max_retries=1)
+    request = {"model": MODEL, "messages": [{"role": "system", "content": system},
+                                            {"role": "user", "content": json.dumps(payload)}]}
+    try:
+        response = client.chat.completions.create(**request, response_format={"type": "json_object"})
+    except BadRequestError:
+        response = client.chat.completions.create(**request)
+    text = response.choices[0].message.content or ""
+    start, end = text.find("{"), text.rfind("}")
+    return json.loads(text[start:end + 1] if start >= 0 else text)
 
 
 def triage(items):
