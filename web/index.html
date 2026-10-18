@@ -458,7 +458,7 @@ async function loadInbox() {
     if (b.dataset.s === "question" && !note) return;
     await api(`/api/tasks/${encodeURIComponent(b.dataset.t)}`, { status: b.dataset.s, note });
     toast(b.dataset.s === "question" ? "Question sent to the compliance team" : `Marked ${b.dataset.s}`);
-    loadPeople(); loadInbox();
+    loadPeople(); loadInbox(); loadStats().catch(() => {});
   }));
 }
 
