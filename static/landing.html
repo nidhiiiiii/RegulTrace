@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>RegulTrace</title>
+<link rel="icon" href="/static/brand/favicon.svg"><link rel="apple-touch-icon" href="/static/brand/apple-touch-icon.png">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -68,6 +70,7 @@ h2 { font-size: 34px; letter-spacing: -.03em; margin: 8px 0 12px; }
 footer { border-top: 1px solid var(--border); padding: 26px 0; color: var(--muted-foreground); font-size: 13px; display: flex; gap: 16px; flex-wrap: wrap; }
 @media (max-width: 860px) { .stats, .grid3, .steps { grid-template-columns: 1fr 1fr; } .links { display: none; } }
 @media (max-width: 560px) { .stats, .grid3, .steps { grid-template-columns: 1fr; } }
+.brand { height: 28px; width: auto; display: block; } .brand.dark { display: none; } :root[data-theme="dark"] .brand.light { display: none; } :root[data-theme="dark"] .brand.dark { display: block; }
 </style>
 </head>
 <body>
@@ -75,7 +78,7 @@ footer { border-top: 1px solid var(--border); padding: 26px 0; color: var(--mute
 
 <div class="wrap">
   <nav>
-    <a class="logo" href="/"><span class="mark">R</span>RegulTrace</a>
+    <a class="logo" href="/"><img class="brand light" src="/static/brand/regultrace-logo-on-light.svg" alt="RegulTrace"><img class="brand dark" src="/static/brand/regultrace-logo-on-dark.svg" alt="RegulTrace"></a>
     <div class="links"><a href="#features">Product</a><a href="#how">How it works</a><a href="#falkordb">Why a graph</a></div>
     <div class="spacer"></div>
     <button class="btn icon" id="theme" title="Toggle light / dark">◐</button>

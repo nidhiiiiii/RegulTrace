@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>RegulTrace</title>
+<link rel="icon" href="/static/brand/favicon.svg"><link rel="apple-touch-icon" href="/static/brand/apple-touch-icon.png">
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -143,12 +145,13 @@ button.primary { background: var(--accent); }
 .statcard b { display: block; font-size: 26px; font-weight: 700; letter-spacing: -.02em; color: var(--ink); }
 .statcard span { font-size: 13px; color: var(--muted); }
 @media (max-width: 900px) { .shell { grid-template-columns: 1fr; } .side { position: static; height: auto; } .statgrid { grid-template-columns: 1fr 1fr; } }
+.brand { height: 28px; width: auto; display: block; } .brand.dark { display: none; } :root[data-theme="dark"] .brand.light { display: none; } :root[data-theme="dark"] .brand.dark { display: block; }
 </style>
 </head>
 <body>
 <div class="shell">
 <aside class="side">
-  <a class="logo" href="/"><div class="mark">R</div>RegulTrace</a>
+  <a class="logo" href="/"><img class="brand light" src="/static/brand/regultrace-logo-on-light.svg" alt="RegulTrace"><img class="brand dark" src="/static/brand/regultrace-logo-on-dark.svg" alt="RegulTrace"></a>
   <div class="navlabel">Platform</div>
   <div class="nav">
     <button id="tab-team" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>Overview</button>
