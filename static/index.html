@@ -356,6 +356,7 @@ function renderDetail(view) {
           <div class="small muted"><b>Why:</b> ${esc(ch.reason)}</div>
         </div>`).join("")}
     </div>
+    ${suggestHtml(view.suggestions || [])}
     <div class="panel">
       <div class="step"><span class="num">4</span><div style="flex:1"><h2 style="margin-bottom:0">Who must act</h2><div class="small muted">Each person has been sent these tasks in their inbox.</div></div></div>
       <div class="people">${view.people.map((p) => `
@@ -456,6 +457,21 @@ async function loadInbox() {
     toast(b.dataset.s === "question" ? "Question sent to the compliance team" : `Marked ${b.dataset.s}`);
     loadPeople(); loadInbox();
   }));
+}
+
+function suggestHtml(list) {
+  if (!list.length) return "";
+  return `<div class="panel">
+    <div class="step"><span class="num" style="background:var(--warn)">!</span><div style="flex:1"><h2 style="margin-bottom:2px">Also review: RegulTrace's proactive suggestions</h2>
+      <div class="small muted">Not named by the regulation, but these sections rely on the same processes that are changing. Found by following the graph.</div></div></div>
+    ${list.map((s) => `
+      <div class="change">
+        <div class="where">${esc(s.policy)}, section ${esc(s.number)}: ${esc(s.section)} <span class="pill warn">Suggested review</span></div>
+        <div class="small" style="margin:6px 0">${esc(s.text)}</div>
+        <div class="small muted"><b>Why:</b> it is carried out by ${esc(s.via.join(", "))}, which must change for "${esc(s.because.join(", "))}". Check this section still holds after that change.</div>
+        <div class="small muted" style="margin-top:4px"><b>Owner${s.owners.length > 1 ? "s" : ""}:</b> ${esc(s.owners.map(first).join(", "))}</div>
+      </div>`).join("")}
+  </div>`;
 }
 
 function retrievalHtml(rt) {

@@ -145,6 +145,16 @@ def retrieve(g, text):
     return {"terms": terms, "seeds": seeds, "related": [r for r in related if r not in seeds], "ms": ms}
 
 
+RIPPLE = """
+MATCH (:Circular {id: $id})-[:PROPOSES]->(:Change)-[:EDITS]->(s:Section)-[:IMPLEMENTED_BY]->(ctl:Control)
+      <-[:IMPLEMENTED_BY]-(other:Section)<-[:HAS_SECTION]-(p:Policy)
+OPTIONAL MATCH (ctl)-[:OWNED_BY]->(o:Owner)
+OPTIONAL MATCH (p)-[:OWNED_BY]->(po:Owner)
+RETURN other.id, p.name, other.number, other.title, other.text, collect(DISTINCT ctl.name),
+       collect(DISTINCT s.title), collect(DISTINCT o.name) + collect(DISTINCT po.name)
+"""
+
+
 def timed(g, query, **params):
     result = g.query(query, params)
     return result.result_set, result.run_time_ms
@@ -321,6 +331,14 @@ def regulation_view(g, cid):
                     "cypher": BLAST.strip(), "ms": blast_ms})
     changes = [dict(zip(["id", "current", "proposed", "reason", "status", "section_id", "policy", "version",
                          "number", "section"], r)) for r in rows(g, CHANGES, id=cid)]
+    changed = {c["section_id"] for c in changes}
+    ripple, ripple_ms = timed(g, RIPPLE, id=cid)
+    suggestions = [{"section_id": sid, "policy": pname, "number": num, "section": title, "text": text, "via": via,
+                    "because": because, "owners": [o for o in dict.fromkeys(owners) if o]}
+                   for sid, pname, num, title, text, via, because, owners in ripple if sid not in changed]
+    if changes:
+        queries.append({"name": "Proactive review: other sections that rely on the processes that are changing",
+                        "cypher": RIPPLE.strip(), "ms": ripple_ms})
     people = {}
     for t in tasks(g, cid=cid):
         people.setdefault(t["owner_id"], {"id": t["owner_id"], "name": t["owner"], "tasks": []})["tasks"].append(t)
@@ -329,7 +347,7 @@ def regulation_view(g, cid):
         counts[n["type"]] = counts.get(n["type"], 0) + 1
     return {"regulation": {k: v for k, v in circ.items() if k not in ("text", "retrieval")}, "text": circ.get("text", ""),
             "nodes": nodes, "edges": edges, "changes": changes, "people": list(people.values()), "counts": counts,
-            "retrieval": retrieval, "queries": queries}
+            "retrieval": retrieval, "queries": queries, "suggestions": suggestions}
 
 
 def company_graph(g, cid=None):
