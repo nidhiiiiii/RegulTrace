@@ -55,6 +55,15 @@ def index():
     return FileResponse(INDEX)
 
 
+@app.get("/api/health")
+def health():
+    try:
+        nodes = graph.rows(graph.connect(), "MATCH (n) RETURN count(n)")[0][0]
+    except Exception as exc:
+        raise HTTPException(503, {"message": f"FalkorDB is unreachable ({type(exc).__name__})", "kind": "database"})
+    return {"ok": True, "graph": graph.GRAPH, "nodes": nodes}
+
+
 @app.get("/api/status")
 def status():
     state = analyze.status()
